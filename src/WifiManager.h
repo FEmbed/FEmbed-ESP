@@ -20,6 +20,9 @@
 #define __WIFICONFIGMANAGER_H__
 
 #include "osTask.h"
+#include "osSignal.h"
+
+#include <memory>
 
 namespace FEmbed {
 
@@ -35,14 +38,21 @@ public:
 
     virtual void loop();
     
-    int connect();
-    int disconnect();
+    void connect();
+    void disconnect();
 
-    int startScan();
-    int stopScan();
+    void startScan();
+    void stopScan();
 
-    int startSmartConfig();
-    int stopSmartConfig();
+    void startSmartConfig();
+    void stopSmartConfig();
+
+protected:
+    /**
+     * Wifi Module initial function.
+     */
+    void init();
+
 };
 
 }
