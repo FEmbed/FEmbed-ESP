@@ -24,35 +24,73 @@
 
 #include <memory>
 
+#define WIFI_STATE_SMARTCONFIG                  (0)
+#define WIFI_STATE_AP                           (1)
+#define WIFI_STATE_STA                          (2)
+#define WIFI_STATE_STA_CONNECTED                (3)
+
 namespace FEmbed {
 
 /**
- * @brief WifiConfigManager
+ * @brief WifiManager
  * We use this class to manage Wifi connections, such as APConfig or Smartconfig.
  */
-class WifiConfigManager :
+class WifiManager :
     public OSTask {
 public:
-    WifiConfigManager();
-    virtual ~WifiConfigManager();
+    virtual ~WifiManager();
 
     virtual void loop();
     
     void connect();
     void disconnect();
 
+    ///< Scan Wifi AP information.
     void startScan();
     void stopScan();
 
+    ///< SmartConfig
     void startSmartConfig();
     void stopSmartConfig();
 
+    void setSTASsid(const char *ssid);
+    void setSTAPassword(const char *password);
+    void setSTASsidAndPassword(const char *ssid, const char *password);
+    void startSTAConnect();
+
+    void setAPSsid(const char *ssid);
+    void setAPPassword(const char *password);
+    void setAPSsidAndPassword(const char *ssid, const char *password);
+    void startAPConnect();
+
+    int wifiState() { return m_wifi_state; }
+    static WifiManager *get() {
+        static WifiManager *instance = NULL;
+        if(instance == NULL)
+        {
+            instance = new WifiManager();
+            assert(instance);
+        }
+        return instance;
+    }
 protected:
+    WifiManager();
     /**
      * Wifi Module initial function.
      */
     void init();
 
+private:
+    char m_sta_ssid[32];
+    char m_ap_ssid[32];
+    char m_sta_password[64];
+    char m_ap_password[64];
+
+    /**
+     * After Boot, module will check wifi mode, if it's STA, then check ssid, no
+     * ssid for Smartconfig else normal STA.
+     */
+    uint8_t m_wifi_state;       ///< 0-> SMARTCONFIG, 1-> AP, 2-> STA, 3-> STA_CONNECTED
 };
 
 }

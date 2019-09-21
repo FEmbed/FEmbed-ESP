@@ -28,10 +28,12 @@
 #include "esp_smartconfig.h"
 #include "smartconfig_ack.h"
 
+#include "string.h"
+
 #ifdef  LOG_TAG
     #undef  LOG_TAG
 #endif
-#define LOG_TAG                             "WifiConfigManager"
+#define LOG_TAG                             "WifiManager"
 
 #define CONNECT_BIT                     BIT0
 #define CONNECTED_BIT                   BIT1
@@ -46,9 +48,16 @@
 #define SCAN_DONE_BIT                   BIT8
 #define SCAN_STOP_BIT                   BIT9
 
+#define STA_CONNECT                     BIT10
+#define STA_CONNECTED                   BIT11
+
+#define AP_CONNECT                      BIT12
+#define AP_CONNECTED                    BIT13
+
 namespace FEmbed {
 
 std::shared_ptr<OSSignal> s_wifi_signal = nullptr;
+wifi_ap_record_t *s_ap_records;
 
 static void sc_callback(smartconfig_status_t status, void *pdata)
 {
@@ -100,15 +109,33 @@ static void sc_callback(smartconfig_status_t status, void *pdata)
 
 static esp_err_t event_handler(void *ctx, system_event_t *event)
 {
+    (void) ctx;
     /* For accessing reason codes in case of disconnection */
     system_event_info_t *info = &event->event_info;
 
     switch(event->event_id) {
-    case SYSTEM_EVENT_STA_START:
-        ///<
+    case SYSTEM_EVENT_WIFI_READY:
         break;
-    case SYSTEM_EVENT_STA_GOT_IP:
-        if(s_wifi_signal) s_wifi_signal->set(CONNECTED_BIT);
+    case SYSTEM_EVENT_SCAN_DONE:
+    {
+        uint16_t num = 16;
+        if(s_ap_records != NULL) vPortFree(s_ap_records);
+        s_ap_records = (wifi_ap_record_t*)pvPortMalloc(sizeof(wifi_ap_record_t) * 16);
+        if(s_ap_records != NULL)
+        {
+            esp_err_t err = esp_wifi_scan_get_ap_records(&num, s_ap_records);
+            if(err == ESP_OK)
+            {
+            }
+        }
+        break;
+    }
+    case SYSTEM_EVENT_STA_START:
+        break;
+    case SYSTEM_EVENT_STA_STOP:
+        break;
+    case SYSTEM_EVENT_STA_CONNECTED:
+
         break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
         log_e("Disconnect reason : %d", info->disconnected.reason);
@@ -116,52 +143,104 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
             /*Switch to 802.11 bgn mode */
             esp_wifi_set_protocol(ESP_IF_WIFI_STA, WIFI_PROTOCAL_11B | WIFI_PROTOCAL_11G | WIFI_PROTOCAL_11N);
         }
-        static int retry = 0;
-        if(retry ++ > 10)
+        static uint8_t retry_connect = 0;
+        if(WifiManager::get()->wifiState() == WIFI_STATE_SMARTCONFIG && retry_connect++ > 2)
         {
-            retry = 0;
+            /**
+             * When in smartconfig mode, after 3 times retry, then re-enter
+             * smartconfig start mode.
+             */
+            retry_connect = 0;
             s_wifi_signal->set(SMARTCONFIG_BIT);
         }
         else
             if(s_wifi_signal) s_wifi_signal->set(DISCONNECTED_BIT);
         break;
+    case SYSTEM_EVENT_STA_AUTHMODE_CHANGE:
+        break;
+    case SYSTEM_EVENT_STA_GOT_IP:
+        if(s_wifi_signal) s_wifi_signal->set(CONNECTED_BIT);
+        break;
+    case SYSTEM_EVENT_STA_LOST_IP:
+        break;
+    case SYSTEM_EVENT_AP_START:
+        break;
+    case SYSTEM_EVENT_AP_STOP:
+        break;
+    case SYSTEM_EVENT_AP_STACONNECTED:
+        break;
+    case SYSTEM_EVENT_AP_STADISCONNECTED:
+        break;
     default:
-
         break;
     }
     return ESP_OK;
 }
 
-WifiConfigManager::WifiConfigManager()
+WifiManager::WifiManager()
     : OSTask("WifiManager")
 {
-
+    s_ap_records = NULL;
+    s_wifi_signal.reset(new OSSignal());
+    m_wifi_state = 0;
 }
 
-WifiConfigManager::~WifiConfigManager()
+WifiManager::~WifiManager()
 {
     
 }
 
-void  WifiConfigManager::init()
+void  WifiManager::init()
 {
+    wifi_config_t wifi_config;
+    wifi_mode_t wifi_mode;
+
     log_i("Wifi start!");
     tcpip_adapter_init();
-    if(!s_wifi_signal)
-    {
-        s_wifi_signal = new OSSignal();
-    }
     ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL));
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
 
     ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
+
+    if(esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_config) == ESP_OK)
+    {
+        strncpy((char *)m_sta_ssid, (const char *)wifi_config.sta.ssid, 32);
+        strncpy((char *)m_sta_password, (const char *)wifi_config.sta.password, 64);
+    }
+    if(esp_wifi_get_config(ESP_IF_WIFI_AP, &wifi_config) == ESP_OK)
+    {
+        strncpy((char *)m_ap_ssid, (const char *)wifi_config.sta.ssid, 32);
+        strncpy((char *)m_ap_password, (const char *)wifi_config.sta.password, 64);
+    }
+    esp_wifi_get_mode(&wifi_mode);
+
+    /* All configuration default storage to RAM. */
+    esp_wifi_set_storage(WIFI_STORAGE_RAM);
+
+    if(wifi_mode == WIFI_MODE_STA)
+    {
+        if(strlen(m_sta_ssid) > 0 && strlen(m_sta_ssid) < 32)
+        {
+            this->startSTAConnect();
+        }
+        else
+        {
+            this->startSmartConfig();
+        }
+    }
+    else
+    {
+        this->startAPConnect();
+    }
+
+    ESP_ERROR_CHECK( esp_wifi_set_mode(wifi_mode) );
     ESP_ERROR_CHECK( esp_wifi_start() );
 }
 
-void WifiConfigManager::loop()
+void WifiManager::loop()
 {
+    wifi_config_t wifi_cfg;
     int bits = 0;
     this->init();
     for(;;)
@@ -184,9 +263,13 @@ void WifiConfigManager::loop()
                     log_w("Disconnected Wifi Module failed!");
                 }
             }
-            if(bits & DISCONNECT_BIT) {
+            if(bits & DISCONNECTED_BIT) {
                 log_i("WiFi disconnected to ap");       ///< Update WifiState
-                esp_wifi_connect();                   ///< Always retry to connected.
+                esp_wifi_connect();                     ///< Always retry to connected.
+                if(m_wifi_state == WIFI_STATE_STA_CONNECTED)
+                {
+                    m_wifi_state = WIFI_STATE_STA;
+                }
             }
             if(bits & SMARTCONFIG_BIT)
             {
@@ -194,6 +277,7 @@ void WifiConfigManager::loop()
                 ESP_ERROR_CHECK( esp_smartconfig_stop());
                 ESP_ERROR_CHECK( esp_smartconfig_set_type(SC_TYPE_ESPTOUCH_AIRKISS) );
                 ESP_ERROR_CHECK( esp_smartconfig_start(sc_callback) );
+                m_wifi_state = WIFI_STATE_SMARTCONFIG;
             }
             if(bits & SMARTCONFIG_STOP_BIT) {
                 if(esp_smartconfig_stop())
@@ -214,6 +298,32 @@ void WifiConfigManager::loop()
             if(bits & SCAN_STOP_BIT) {
 
             }
+            if(bits & STA_CONNECT) {
+                m_wifi_state = WIFI_STATE_STA;
+                memset(&wifi_cfg, 0, sizeof(wifi_config_t));
+                strcpy((char *)&wifi_cfg.sta.ssid, m_sta_ssid);
+                if(strlen(m_sta_password))
+                    strcpy((char *)&wifi_cfg.sta.password, m_sta_password);
+                else
+                    wifi_cfg.sta.password[0] = 0;
+                ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+                ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_cfg));
+                ESP_ERROR_CHECK( esp_wifi_connect() );
+                log_d("Connect to AP:%s, with pass:%s", wifi_cfg.sta.ssid, wifi_cfg.sta.password);
+            }
+            if(bits & STA_CONNECTED) {
+                m_wifi_state = WIFI_STATE_STA_CONNECTED;
+                ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_cfg));
+                esp_wifi_set_storage(WIFI_STORAGE_FLASH);
+                ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_cfg));
+                esp_wifi_set_storage(WIFI_STORAGE_RAM);
+            }
+            if(bits & AP_CONNECT) {
+                m_wifi_state = WIFI_STATE_AP;
+            }
+            if(bits & AP_CONNECTED) {
+
+            }
         }
         else
         {
@@ -224,7 +334,7 @@ void WifiConfigManager::loop()
 /**
  * @brief     Connect the ESP WiFi station to the AP.
  */ 
-void WifiConfigManager::connect()
+void WifiManager::connect()
 {
     if(s_wifi_signal)
         s_wifi_signal->set(CONNECT_BIT);
@@ -234,34 +344,79 @@ void WifiConfigManager::connect()
  * @brief     Disconnect the ESP WiFi station from the AP.
  * 
  */  
-void WifiConfigManager::disconnect()
+void WifiManager::disconnect()
 {
     if(s_wifi_signal)
         s_wifi_signal->set(DISCONNECT_BIT);
 }
 
-void WifiConfigManager::startScan()
+void WifiManager::startScan()
 {
     if(s_wifi_signal)
         s_wifi_signal->set(SCAN_START_BIT);
 }
 
-void WifiConfigManager::stopScan()
+void WifiManager::stopScan()
 {
     if(s_wifi_signal)
         s_wifi_signal->set(SCAN_STOP_BIT);
 }
 
-void WifiConfigManager::startSmartConfig()
+void WifiManager::startSmartConfig()
 {
     if(s_wifi_signal)
         s_wifi_signal->set(SMARTCONFIG_BIT);
 }
 
-void WifiConfigManager::stopSmartConfig()
+void WifiManager::stopSmartConfig()
 {
     if(s_wifi_signal)
         s_wifi_signal->set(SMARTCONFIG_STOP_BIT);
+}
+
+void WifiManager::setSTASsid(const char *ssid)
+{
+    strncpy((char *)m_sta_ssid, ssid, 32);
+}
+
+void WifiManager::setSTAPassword(const char *password)
+{
+    strncpy((char *)m_sta_password, password, 64);
+}
+
+void WifiManager::setSTASsidAndPassword(const char *ssid, const char *password)
+{
+    this->setSTASsid(ssid);
+    this->setSTAPassword(password);
+}
+
+
+void WifiManager::startSTAConnect()
+{
+    if(s_wifi_signal)
+        s_wifi_signal->set(STA_CONNECT);
+}
+
+void WifiManager::setAPSsid(const char *ssid)
+{
+    strncpy((char *)m_ap_ssid, ssid, 32);
+}
+
+void WifiManager::setAPPassword(const char *password)
+{
+    strncpy((char *)m_ap_password, password, 64);
+}
+
+void WifiManager::setAPSsidAndPassword(const char *ssid, const char *password)
+{
+    this->setAPSsid(ssid);
+    this->setAPPassword(password);
+}
+
+void WifiManager::startAPConnect()
+{
+    if(s_wifi_signal)
+        s_wifi_signal->set(AP_CONNECT);
 }
 
 }
