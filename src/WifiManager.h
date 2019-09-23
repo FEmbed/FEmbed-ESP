@@ -64,6 +64,7 @@ public:
     void startAPConnect();
 
     int wifiState() { return m_wifi_state; }
+
     static WifiManager *get() {
         static WifiManager *instance = NULL;
         if(instance == NULL)
@@ -74,6 +75,9 @@ public:
         return instance;
     }
 protected:
+    /**
+     * DON'T USE New to create `WifiManager`, just use get().
+     */
     WifiManager();
     /**
      * Wifi Module initial function.

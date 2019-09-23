@@ -135,7 +135,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
     case SYSTEM_EVENT_STA_STOP:
         break;
     case SYSTEM_EVENT_STA_CONNECTED:
-
+        s_wifi_signal->set(STA_CONNECTED);
         break;
     case SYSTEM_EVENT_STA_DISCONNECTED:
         log_e("Disconnect reason : %d", info->disconnected.reason);
@@ -196,6 +196,7 @@ void  WifiManager::init()
     wifi_mode_t wifi_mode;
 
     log_i("Wifi start!");
+    ESP_ERROR_CHECK( nvs_flash_init() );
     tcpip_adapter_init();
     ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL));
 
@@ -216,7 +217,7 @@ void  WifiManager::init()
     esp_wifi_get_mode(&wifi_mode);
 
     /* All configuration default storage to RAM. */
-    esp_wifi_set_storage(WIFI_STORAGE_RAM);
+    //esp_wifi_set_storage(WIFI_STORAGE_RAM);
 
     if(wifi_mode == WIFI_MODE_STA)
     {
@@ -255,7 +256,7 @@ void WifiManager::loop()
                 }
             }
             if(bits & CONNECTED_BIT) {
-                log_i("WiFi Connected to ap");      ///< Update WifiState
+                log_i("WiFi Connected to ap");          ///< Update WifiState
             }
             if(bits & DISCONNECT_BIT) {
                 if(esp_wifi_disconnect())
@@ -313,16 +314,30 @@ void WifiManager::loop()
             }
             if(bits & STA_CONNECTED) {
                 m_wifi_state = WIFI_STATE_STA_CONNECTED;
+#if 0
                 ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_cfg));
-                esp_wifi_set_storage(WIFI_STORAGE_FLASH);
+                ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_FLASH));
                 ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_cfg));
-                esp_wifi_set_storage(WIFI_STORAGE_RAM);
+                ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
+#endif
             }
             if(bits & AP_CONNECT) {
                 m_wifi_state = WIFI_STATE_AP;
+                memset(&wifi_cfg, 0, (size_t)sizeof(wifi_ap_config_t));
+				strcpy((char *)&wifi_cfg.ap.ssid, m_ap_ssid);
+                wifi_cfg.ap.ssid_len = strlen(m_ap_ssid);
+                strcpy((char *)&wifi_cfg.ap.password, m_ap_password);
+                wifi_cfg.ap.max_connection = 4;
+                wifi_cfg.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
+                if (strlen(m_ap_password) == 0) {
+                    wifi_cfg.ap.authmode = WIFI_AUTH_OPEN;
+                }
+				ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+				ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_cfg));
+                ESP_ERROR_CHECK( esp_wifi_connect() );
+                log_d("Setup AP hotspot:%s, with pass:%s", wifi_cfg.ap.ssid, wifi_cfg.ap.password);
             }
             if(bits & AP_CONNECTED) {
-
             }
         }
         else
