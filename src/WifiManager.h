@@ -22,6 +22,8 @@
 #include "osTask.h"
 #include "osSignal.h"
 
+#include "tcpip_adapter.h"
+
 #include <memory>
 
 #define WIFI_STATE_SMARTCONFIG                  (0)
@@ -65,6 +67,14 @@ public:
 
     int wifiState() { return m_wifi_state; }
 
+    /**
+     * @brief Get Device MAC string
+     * 
+     * @return char* mac
+     */
+    uint8_t *getMAC() const { return (uint8_t *)m_mac; }
+    tcpip_adapter_ip_info_t *getAdapterIpInfo() { return &m_adp_ip; }
+
     static WifiManager *get() {
         static WifiManager *instance = NULL;
         if(instance == NULL)
@@ -90,6 +100,9 @@ private:
     char m_sta_password[64];
     char m_ap_password[64];
 
+    uint8_t m_mac[6];              ///< device default mac information
+    tcpip_adapter_ip_info_t m_adp_ip;
+    
     /**
      * After Boot, module will check wifi mode, if it's STA, then check ssid, no
      * ssid for Smartconfig else normal STA.
