@@ -131,6 +131,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         break;
     }
     case SYSTEM_EVENT_STA_START:
+        esp_wifi_connect();
         break;
     case SYSTEM_EVENT_STA_STOP:
         break;
@@ -187,7 +188,6 @@ WifiManager::WifiManager()
 
 WifiManager::~WifiManager()
 {
-    
 }
 
 void  WifiManager::init()
