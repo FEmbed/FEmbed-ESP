@@ -77,7 +77,7 @@ static void sc_callback(smartconfig_status_t status, void *pdata)
             wifi_config_t *wifi_config = (wifi_config_t *)pdata;
             log_i("SSID:%s", wifi_config->sta.ssid);
             log_i("PASSWORD:%s", wifi_config->sta.password);
-            ESP_ERROR_CHECK( esp_wifi_disconnect() );
+            esp_wifi_disconnect();
             ESP_ERROR_CHECK( esp_wifi_set_config(ESP_IF_WIFI_STA, wifi_config) );
             ESP_ERROR_CHECK( esp_wifi_connect() );
             break;
@@ -204,20 +204,6 @@ void  WifiManager::init()
 
     ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
 
-    if(esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_config) == ESP_OK)
-    {
-        strncpy((char *)m_sta_ssid, (const char *)wifi_config.sta.ssid, 32);
-        strncpy((char *)m_sta_password, (const char *)wifi_config.sta.password, 64);
-        esp_wifi_get_mac(ESP_IF_WIFI_STA, m_mac);
-        tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &m_adp_ip);
-    }
-    if(esp_wifi_get_config(ESP_IF_WIFI_AP, &wifi_config) == ESP_OK)
-    {
-        strncpy((char *)m_ap_ssid, (const char *)wifi_config.sta.ssid, 32);
-        strncpy((char *)m_ap_password, (const char *)wifi_config.sta.password, 64);
-        esp_wifi_get_mac(ESP_IF_WIFI_AP, m_mac);
-        tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &m_adp_ip);
-    }
     esp_wifi_get_mode(&wifi_mode);
 
     /* All configuration default storage to RAM. */
@@ -225,6 +211,14 @@ void  WifiManager::init()
 
     if(wifi_mode == WIFI_MODE_STA)
     {
+        if(esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_config) == ESP_OK)
+        {
+            strncpy((char *)m_sta_ssid, (const char *)wifi_config.sta.ssid, 32);
+            strncpy((char *)m_sta_password, (const char *)wifi_config.sta.password, 64);
+            esp_wifi_get_mac(ESP_IF_WIFI_STA, m_mac);
+            tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &m_adp_ip);
+        }
+
         if(strlen(m_sta_ssid) > 0 && strlen(m_sta_ssid) < 32)
         {
             this->startSTAConnect();
@@ -236,11 +230,16 @@ void  WifiManager::init()
     }
     else
     {
+        if(esp_wifi_get_config(ESP_IF_WIFI_AP, &wifi_config) == ESP_OK)
+        {
+            strncpy((char *)m_ap_ssid, (const char *)wifi_config.ap.ssid, 32);
+            strncpy((char *)m_ap_password, (const char *)wifi_config.ap.password, 64);
+            esp_wifi_get_mac(ESP_IF_WIFI_AP, m_mac);
+            tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &m_adp_ip);
+        }
+
         this->startAPConnect();
     }
-
-    ESP_ERROR_CHECK( esp_wifi_set_mode(wifi_mode) );
-    ESP_ERROR_CHECK( esp_wifi_start() );
 }
 
 void WifiManager::loop()
@@ -278,8 +277,8 @@ void WifiManager::loop()
             }
             if(bits & SMARTCONFIG_BIT)
             {
-                ESP_ERROR_CHECK( esp_wifi_disconnect() );
-                ESP_ERROR_CHECK( esp_smartconfig_stop());
+                esp_wifi_disconnect();
+                esp_smartconfig_stop();
                 ESP_ERROR_CHECK( esp_smartconfig_set_type(SC_TYPE_ESPTOUCH_AIRKISS) );
                 ESP_ERROR_CHECK( esp_smartconfig_start(sc_callback) );
                 m_wifi_state = WIFI_STATE_SMARTCONFIG;
@@ -313,7 +312,7 @@ void WifiManager::loop()
                     wifi_cfg.sta.password[0] = 0;
                 ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
                 ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_cfg));
-                ESP_ERROR_CHECK(esp_wifi_stop());
+                esp_wifi_stop();
                 ESP_ERROR_CHECK(esp_wifi_start());
                 log_d("Connect to AP:%s, with pass:%s", wifi_cfg.sta.ssid, wifi_cfg.sta.password);
             }
@@ -333,14 +332,14 @@ void WifiManager::loop()
                 wifi_cfg.ap.ssid_len = strlen(m_ap_ssid);
                 strcpy((char *)&wifi_cfg.ap.password, m_ap_password);
                 wifi_cfg.ap.max_connection = 4;
-                wifi_cfg.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
+                wifi_cfg.ap.authmode = WIFI_AUTH_WPA2_PSK;
                 if (strlen(m_ap_password) == 0) {
                     wifi_cfg.ap.authmode = WIFI_AUTH_OPEN;
                 }
                 log_d("Setup AP hotspot:%s, with pass:%s", wifi_cfg.ap.ssid, wifi_cfg.ap.password);
 				ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
 				ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_cfg));
-                ESP_ERROR_CHECK(esp_wifi_stop());
+                esp_wifi_stop();
                 ESP_ERROR_CHECK(esp_wifi_start());
             }
             if(bits & AP_CONNECTED) {
