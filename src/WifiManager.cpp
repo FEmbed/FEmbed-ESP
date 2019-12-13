@@ -216,7 +216,6 @@ void  WifiManager::init()
             strncpy((char *)m_sta_ssid, (const char *)wifi_config.sta.ssid, 32);
             strncpy((char *)m_sta_password, (const char *)wifi_config.sta.password, 64);
             esp_wifi_get_mac(ESP_IF_WIFI_STA, m_mac);
-            tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &m_adp_ip);
         }
 
         if(strlen(m_sta_ssid) > 0 && strlen(m_sta_ssid) < 32)
@@ -259,6 +258,7 @@ void WifiManager::loop()
                 }
             }
             if(bits & CONNECTED_BIT) {
+                tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &m_adp_ip);
                 log_i("WiFi Connected to ap");          ///< Update WifiState
             }
             if(bits & DISCONNECT_BIT) {
