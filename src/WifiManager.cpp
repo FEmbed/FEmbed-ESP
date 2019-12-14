@@ -41,18 +41,19 @@
 #define DISCONNECTED_BIT                BIT3
 
 #define SMARTCONFIG_BIT                 BIT4
-#define SMARTCONFIG_STOP_BIT            BIT5
-#define ESPTOUCH_DONE_BIT               BIT6
+#define SMARTCONFIG_START_BIT           BIT5
+#define SMARTCONFIG_STOP_BIT            BIT6
+#define ESPTOUCH_DONE_BIT               BIT7
 
-#define SCAN_START_BIT                  BIT7
-#define SCAN_DONE_BIT                   BIT8
-#define SCAN_STOP_BIT                   BIT9
+#define SCAN_START_BIT                  BIT8
+#define SCAN_DONE_BIT                   BIT9
+#define SCAN_STOP_BIT                   BIT10
 
-#define STA_CONNECT                     BIT10
-#define STA_CONNECTED                   BIT11
+#define STA_CONNECT                     BIT11
+#define STA_CONNECTED                   BIT12
 
-#define AP_CONNECT                      BIT12
-#define AP_CONNECTED                    BIT13
+#define AP_CONNECT                      BIT13
+#define AP_CONNECTED                    BIT14
 
 namespace FEmbed {
 
@@ -131,7 +132,10 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         break;
     }
     case SYSTEM_EVENT_STA_START:
-        esp_wifi_connect();
+        if(WifiManager::get()->wifiState() == WIFI_STATE_SMARTCONFIG)
+            s_wifi_signal->set(SMARTCONFIG_START_BIT);
+        else
+            esp_wifi_connect();
         break;
     case SYSTEM_EVENT_STA_STOP:
         break;
@@ -147,12 +151,12 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         static uint8_t retry_connect = 0;
         if(WifiManager::get()->wifiState() == WIFI_STATE_SMARTCONFIG && retry_connect++ > 2)
         {
-            /**
-             * When in smartconfig mode, after 3 times retry, then re-enter
-             * smartconfig start mode.
-             */
-            retry_connect = 0;
-            s_wifi_signal->set(SMARTCONFIG_BIT);
+            wifi_config_t wifi_cfg;
+            memset(&wifi_cfg, 0, sizeof(wifi_config_t));
+            ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+            ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_cfg));
+            delay(1000);
+            esp_restart();
         }
         else
             if(s_wifi_signal) s_wifi_signal->set(DISCONNECTED_BIT);
@@ -183,7 +187,7 @@ WifiManager::WifiManager()
 {
     s_ap_records = NULL;
     s_wifi_signal.reset(new OSSignal());
-    m_wifi_state = 0;
+    m_wifi_state = WIFI_STATE_SMARTCONFIG;
 }
 
 WifiManager::~WifiManager()
@@ -277,11 +281,28 @@ void WifiManager::loop()
             }
             if(bits & SMARTCONFIG_BIT)
             {
-                esp_wifi_disconnect();
-                esp_smartconfig_stop();
+                if(m_wifi_state != WIFI_STATE_SMARTCONFIG)
+                {
+                    memset(&wifi_cfg, 0, sizeof(wifi_config_t));
+                    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+                    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_cfg));
+                    delay(1000);
+                    esp_restart();
+                }
+                else
+                {
+                    //esp_wifi_disconnect();
+                    //esp_smartconfig_stop();
+                    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+                    ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
+                    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
+                    ESP_ERROR_CHECK( esp_wifi_start() );
+                    m_wifi_state = WIFI_STATE_SMARTCONFIG;
+                }
+            }
+            if(bits & SMARTCONFIG_START_BIT) {
                 ESP_ERROR_CHECK( esp_smartconfig_set_type(SC_TYPE_ESPTOUCH_AIRKISS) );
                 ESP_ERROR_CHECK( esp_smartconfig_start(sc_callback) );
-                m_wifi_state = WIFI_STATE_SMARTCONFIG;
             }
             if(bits & SMARTCONFIG_STOP_BIT) {
                 if(esp_smartconfig_stop())
