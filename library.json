@@ -26,5 +26,12 @@
             "+<*.cpp>",
             "+<*.h>"
         ]
-    }
+    },
+    "dependencies": [
+        {
+            "name": "FEmbed-Arduino",
+            "version": ">=0.1.0",
+            "platforms": ["custom8266", "ststm32"]
+        }
+    ]
 }

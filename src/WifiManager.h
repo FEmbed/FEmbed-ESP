@@ -21,10 +21,12 @@
 
 #include "osTask.h"
 #include "osSignal.h"
+#include "WString.h"
 
 #include "tcpip_adapter.h"
 
 #include <memory>
+using std::shared_ptr;
 
 #define WIFI_STATE_SMARTCONFIG                  (0)
 #define WIFI_STATE_AP                           (1)
@@ -54,6 +56,18 @@ public:
     ///< SmartConfig
     void startSmartConfig();
     void stopSmartConfig();
+
+    /**
+     * Save Raw Websocket config from phone
+     */
+    void saveRawWebsocketConfig(char *buf);
+    
+    shared_ptr<String> getWebsocketHost();
+    uint32_t getWebsocketPort();
+    shared_ptr<String> getWebsocketUrl();
+    shared_ptr<String> getWebsocketProtocol();
+    shared_ptr<String> getWebsocketUser();
+    shared_ptr<String> getWebsocketPass();
 
     void setSTASsid(const char *ssid);
     void setSTAPassword(const char *password);

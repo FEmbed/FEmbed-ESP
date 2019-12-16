@@ -59,6 +59,7 @@ namespace FEmbed {
 
 std::shared_ptr<OSSignal> s_wifi_signal = nullptr;
 wifi_ap_record_t *s_ap_records;
+uint8_t s_phone_ip[4];      ///< smartconfig/ap-config phone's ip address.
 
 static void sc_callback(smartconfig_status_t status, void *pdata)
 {
@@ -76,8 +77,8 @@ static void sc_callback(smartconfig_status_t status, void *pdata)
         {
             log_i("SC_STATUS_LINK");
             wifi_config_t *wifi_config = (wifi_config_t *)pdata;
-            log_i("SSID:%s", wifi_config->sta.ssid);
-            log_i("PASSWORD:%s", wifi_config->sta.password);
+            log_d("SSID:%s", wifi_config->sta.ssid);
+            log_d("PASSWORD:%s", wifi_config->sta.password);
             esp_wifi_disconnect();
             ESP_ERROR_CHECK( esp_wifi_set_config(ESP_IF_WIFI_STA, wifi_config) );
             ESP_ERROR_CHECK( esp_wifi_connect() );
@@ -89,6 +90,7 @@ static void sc_callback(smartconfig_status_t status, void *pdata)
                 sc_callback_data_t *sc_callback_data = (sc_callback_data_t *)pdata;
                 switch (sc_callback_data->type) {
                     case SC_ACK_TYPE_ESPTOUCH:
+                        memcpy(s_phone_ip, sc_callback_data->ip, 4);
                         log_i("Phone ip: %d.%d.%d.%d", sc_callback_data->ip[0], sc_callback_data->ip[1], sc_callback_data->ip[2], sc_callback_data->ip[3]);
                         log_i("TYPE: ESPTOUCH");
                         break;
@@ -312,6 +314,7 @@ void WifiManager::loop()
             }
             if(bits & ESPTOUCH_DONE_BIT) {
                 esp_smartconfig_stop();
+                m_wifi_state = WIFI_STATE_STA_CONNECTED;
             }
 
             if(bits & SCAN_START_BIT) {
@@ -332,13 +335,13 @@ void WifiManager::loop()
                 else
                     wifi_cfg.sta.password[0] = 0;
                 ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-                ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_cfg));
                 esp_wifi_stop();
                 ESP_ERROR_CHECK(esp_wifi_start());
-                log_d("Connect to AP:%s, with pass:%s", wifi_cfg.sta.ssid, wifi_cfg.sta.password);
+                log_d("Connect to AP:%s, with pass:***", wifi_cfg.sta.ssid);
             }
             if(bits & STA_CONNECTED) {
-                m_wifi_state = WIFI_STATE_STA_CONNECTED;
+                if(m_wifi_state == WIFI_STATE_STA)
+                    m_wifi_state = WIFI_STATE_STA_CONNECTED;
 #if 0
                 ESP_ERROR_CHECK(esp_wifi_get_config(ESP_IF_WIFI_STA, &wifi_cfg));
                 ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_FLASH));
@@ -413,6 +416,202 @@ void WifiManager::stopSmartConfig()
 {
     if(s_wifi_signal)
         s_wifi_signal->set(SMARTCONFIG_STOP_BIT);
+}
+
+shared_ptr<String> WifiManager::getWebsocketHost()
+{
+    shared_ptr<String> ret;
+    nvs_handle nvs_h;
+    esp_err_t err = nvs_open("websocket", NVS_READWRITE, &nvs_h);
+    if (err != ESP_OK) {
+        printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+    } else {
+        size_t size;
+        if(nvs_get_str(nvs_h, "host", NULL, &size) == ESP_OK && size > 0)
+        {
+            char *host = (char *)malloc(size);
+            nvs_get_str(nvs_h, "host", host, &size);
+            ret.reset(new String(host));
+            free(host);
+        }
+        nvs_close(nvs_h);
+    }
+    return ret;
+}
+
+shared_ptr<String> WifiManager::getWebsocketUrl()
+{
+    shared_ptr<String> ret;
+    nvs_handle nvs_h;
+    esp_err_t err = nvs_open("websocket", NVS_READWRITE, &nvs_h);
+    if (err != ESP_OK) {
+        printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+    } else {
+        size_t size;
+        if(nvs_get_str(nvs_h, "url", NULL, &size) == ESP_OK && size > 0)
+        {
+            char *url = (char *)malloc(size);
+            nvs_get_str(nvs_h, "url", url, &size);
+            ret.reset(new String(url));
+            free(url);
+        }
+        nvs_close(nvs_h);
+    }
+    return ret;
+}
+
+shared_ptr<String> WifiManager::getWebsocketProtocol()
+{
+    shared_ptr<String> ret;
+    nvs_handle nvs_h;
+    esp_err_t err = nvs_open("websocket", NVS_READWRITE, &nvs_h);
+    if (err != ESP_OK) {
+        printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+    } else {
+        size_t size;
+        if(nvs_get_str(nvs_h, "prot", NULL, &size) == ESP_OK && size > 0)
+        {
+            char *prot = (char *)malloc(size);
+            nvs_get_str(nvs_h, "prot", prot, &size);
+            ret.reset(new String(prot));
+            free(prot);
+        }
+        nvs_close(nvs_h);
+    }
+    return ret;
+}
+
+uint32_t WifiManager::getWebsocketPort()
+{
+    uint32_t port;
+    nvs_handle nvs_h;
+    esp_err_t err = nvs_open("websocket", NVS_READWRITE, &nvs_h);
+    if (err != ESP_OK) {
+        printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+    } else {
+        nvs_get_u32(nvs_h, "port", &port);
+        nvs_close(nvs_h);
+    }
+    return port;
+}
+
+shared_ptr<String> WifiManager::getWebsocketUser()
+{
+    shared_ptr<String> ret;
+    nvs_handle nvs_h;
+    esp_err_t err = nvs_open("websocket", NVS_READWRITE, &nvs_h);
+    if (err != ESP_OK) {
+        printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+    } else {
+        size_t size;
+        if(nvs_get_str(nvs_h, "user", NULL, &size) == ESP_OK && size > 0)
+        {
+            char *user = (char *)malloc(size);
+            nvs_get_str(nvs_h, "user", user, &size);
+            ret.reset(new String(user));
+            free(user);
+        }
+        nvs_close(nvs_h);
+    }
+    return ret;
+}
+
+shared_ptr<String> WifiManager::getWebsocketPass()
+{
+    shared_ptr<String> ret;
+    nvs_handle nvs_h;
+    esp_err_t err = nvs_open("websocket", NVS_READWRITE, &nvs_h);
+    if (err != ESP_OK) {
+        printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+    } else {
+        size_t size;
+        if(nvs_get_str(nvs_h, "pass", NULL, &size) == ESP_OK && size > 0)
+        {
+            char *pass = (char *)malloc(size);
+            nvs_get_str(nvs_h, "pass", pass, &size);
+            ret.reset(new String(pass));
+            free(pass);
+        }
+        nvs_close(nvs_h);
+    }
+    return ret;
+}
+
+void WifiManager::saveRawWebsocketConfig(char *buf)
+{
+    char *pch = strtok(buf, "\n");
+    if(pch != NULL)
+    {
+        log_d("Ws indentify:%s", pch);
+        pch = strtok(NULL, "\n");
+        if(pch == NULL)
+        {
+            log_e("Websocket url must be set!");
+            return;
+        }
+        std::shared_ptr<String> ws_host(new String(pch));
+        
+        pch = strtok(NULL, "\n");
+        if(pch == NULL)
+        {
+            log_e("Websocket port must be set!");
+            return;
+        }
+        std::shared_ptr<String> ws_port(new String(pch));
+        std::shared_ptr<String> ws_url;
+        pch = strtok(NULL, "\n");
+        if(pch != NULL)
+        {
+            ws_url.reset(new String(pch));
+        }
+        std::shared_ptr<String> ws_prot;
+        pch = strtok(NULL, "\n");
+        if(pch != NULL)
+        {
+            ws_prot.reset(new String(pch));
+        }
+        std::shared_ptr<String> ws_usr;
+        std::shared_ptr<String> ws_pass;
+        pch = strtok(NULL, "\n");
+        if(pch != NULL)
+        {
+            ws_usr.reset(new String(pch));
+            pch = strtok(NULL, "\n");
+            if(pch != NULL)
+                ws_pass.reset(new String(pch));
+        }
+
+        ///< Save config into nvs flash.
+        nvs_handle nvs_h;
+        esp_err_t err = nvs_open("websocket", NVS_READWRITE, &nvs_h);
+        if (err != ESP_OK) {
+            printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+        } else {
+            nvs_set_str(nvs_h, "host", ws_host->c_str());
+            nvs_set_u32(nvs_h, "port", atoi(ws_url->c_str()));
+            if(ws_url) 
+                nvs_set_str(nvs_h, "url", ws_usr->c_str());
+            else
+                nvs_set_str(nvs_h, "url", "/");
+            if(ws_prot) 
+                nvs_set_str(nvs_h, "prot", ws_prot->c_str());
+            else
+                nvs_set_str(nvs_h, "prot", "");
+            if(ws_usr) 
+                nvs_set_str(nvs_h, "user", ws_usr->c_str());
+            else
+                nvs_set_str(nvs_h, "user", "");
+            if(ws_pass) 
+                nvs_set_str(nvs_h, "pass", ws_pass->c_str());
+            else
+                nvs_set_str(nvs_h, "pass", "");
+            if(nvs_commit(nvs_h) != ESP_OK)
+            {
+                log_e("Commit to nvs flash error!");
+            }
+            nvs_close(nvs_h);
+        }
+    }
 }
 
 void WifiManager::setSTASsid(const char *ssid)
