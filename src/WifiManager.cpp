@@ -265,6 +265,7 @@ void WifiManager::loop()
             }
             if(bits & CONNECTED_BIT) {
                 tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &m_adp_ip);
+                m_wifi_state = WIFI_STATE_STA_CONNECTED;
                 log_i("WiFi Connected to ap");          ///< Update WifiState
             }
             if(bits & DISCONNECT_BIT) {
@@ -314,7 +315,6 @@ void WifiManager::loop()
             }
             if(bits & ESPTOUCH_DONE_BIT) {
                 esp_smartconfig_stop();
-                m_wifi_state = WIFI_STATE_STA_CONNECTED;
             }
 
             if(bits & SCAN_START_BIT) {
@@ -590,7 +590,7 @@ void WifiManager::saveRawWebsocketConfig(char *buf)
             nvs_set_str(nvs_h, "host", ws_host->c_str());
             nvs_set_u32(nvs_h, "port", atoi(ws_url->c_str()));
             if(ws_url) 
-                nvs_set_str(nvs_h, "url", ws_usr->c_str());
+                nvs_set_str(nvs_h, "url", ws_url->c_str());
             else
                 nvs_set_str(nvs_h, "url", "/");
             if(ws_prot) 
@@ -629,7 +629,6 @@ void WifiManager::setSTASsidAndPassword(const char *ssid, const char *password)
     this->setSTASsid(ssid);
     this->setSTAPassword(password);
 }
-
 
 void WifiManager::startSTAConnect()
 {
