@@ -537,6 +537,43 @@ shared_ptr<String> WifiManager::getWebsocketPass()
     return ret;
 }
 
+shared_ptr<String>  WifiManager::getWebsocketCPId()
+{
+    shared_ptr<String> ret;
+    nvs_handle nvs_h;
+    esp_err_t err = nvs_open("websocket", NVS_READWRITE, &nvs_h);
+    if (err != ESP_OK) {
+        printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+    } else {
+        size_t size;
+        if(nvs_get_str(nvs_h, "cpid", NULL, &size) == ESP_OK && size > 0)
+        {
+            char *pass = (char *)malloc(size);
+            nvs_get_str(nvs_h, "pass", pass, &size);
+            ret.reset(new String(pass));
+            free(pass);
+        }
+        nvs_close(nvs_h);
+    }
+    return ret;
+}
+
+void  WifiManager::saveWebsocketCPId(char *cp_id)
+{
+    nvs_handle nvs_h;
+    esp_err_t err = nvs_open("websocket", NVS_READWRITE, &nvs_h);
+    if (err != ESP_OK) {
+        printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
+    } else {
+        if(nvs_set_str(nvs_h, "cpid", cp_id) != ESP_OK)
+        {
+            log_d("Save cpid failed!");
+        }
+        nvs_close(nvs_h);
+    }
+}
+
+
 void WifiManager::saveRawWebsocketConfig(char *buf)
 {
     char *pch = strtok(buf, "\n");

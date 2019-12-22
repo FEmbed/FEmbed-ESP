@@ -61,6 +61,7 @@ public:
      * Save Raw Websocket config from phone
      */
     void saveRawWebsocketConfig(char *buf);
+    void saveWebsocketCPId(char *cp_id);
     
     shared_ptr<String> getWebsocketHost();
     uint32_t getWebsocketPort();
@@ -68,6 +69,7 @@ public:
     shared_ptr<String> getWebsocketProtocol();
     shared_ptr<String> getWebsocketUser();
     shared_ptr<String> getWebsocketPass();
+    shared_ptr<String> getWebsocketCPId();
 
     void setSTASsid(const char *ssid);
     void setSTAPassword(const char *password);
