@@ -59,7 +59,8 @@ namespace FEmbed {
 
 std::shared_ptr<OSSignal> s_wifi_signal = nullptr;
 wifi_ap_record_t *s_ap_records;
-uint8_t s_phone_ip[4];      ///< smartconfig/ap-config phone's ip address.
+uint8_t s_phone_ip[4];              ///< smartconfig/ap-config phone's ip address.
+bool s_wifi_is_init = true;
 
 static void sc_callback(smartconfig_status_t status, void *pdata)
 {
@@ -135,9 +136,14 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
     }
     case SYSTEM_EVENT_STA_START:
         if(WifiManager::get()->wifiState() == WIFI_STATE_SMARTCONFIG)
+        {
             s_wifi_signal->set(SMARTCONFIG_START_BIT);
+            log_d("Current is Smartconfig, then start!");
+        }
         else
-            esp_wifi_connect();
+        {
+            log_d("Current is Station config, then start %d!", esp_wifi_connect());
+        }
         break;
     case SYSTEM_EVENT_STA_STOP:
         break;
@@ -302,6 +308,7 @@ void WifiManager::loop()
                     ESP_ERROR_CHECK( esp_wifi_start() );
                     m_wifi_state = WIFI_STATE_SMARTCONFIG;
                 }
+                s_wifi_is_init = false;
             }
             if(bits & SMARTCONFIG_START_BIT) {
                 ESP_ERROR_CHECK( esp_smartconfig_set_type(SC_TYPE_ESPTOUCH_AIRKISS) );
@@ -336,8 +343,11 @@ void WifiManager::loop()
                     wifi_cfg.sta.password[0] = 0;
                 ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
                 esp_wifi_stop();
+                ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_cfg));
                 ESP_ERROR_CHECK(esp_wifi_start());
-                log_d("Connect to AP:%s, with pass:***", wifi_cfg.sta.ssid);
+                //log_d("Connect to AP:%s, with pass:***", wifi_cfg.sta.ssid);
+                log_d("Connect to AP:%s, with pass:%s", wifi_cfg.sta.ssid, wifi_cfg.sta.password);
+                s_wifi_is_init = false;
             }
             if(bits & STA_CONNECTED) {
                 if(m_wifi_state == WIFI_STATE_STA)
@@ -352,7 +362,7 @@ void WifiManager::loop()
             if(bits & AP_CONNECT) {
                 m_wifi_state = WIFI_STATE_AP;
                 memset(&wifi_cfg, 0, (size_t)sizeof(wifi_ap_config_t));
-				strcpy((char *)&wifi_cfg.ap.ssid, m_ap_ssid);
+                strcpy((char *)&wifi_cfg.ap.ssid, m_ap_ssid);
                 wifi_cfg.ap.ssid_len = strlen(m_ap_ssid);
                 strcpy((char *)&wifi_cfg.ap.password, m_ap_password);
                 wifi_cfg.ap.max_connection = 4;
@@ -361,10 +371,19 @@ void WifiManager::loop()
                     wifi_cfg.ap.authmode = WIFI_AUTH_OPEN;
                 }
                 log_d("Setup AP hotspot:%s, with pass:%s", wifi_cfg.ap.ssid, wifi_cfg.ap.password);
-				ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
-				ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_cfg));
                 esp_wifi_stop();
-                ESP_ERROR_CHECK(esp_wifi_start());
+                ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+                ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_AP, &wifi_cfg));
+                delay(500);
+                if(!s_wifi_is_init)
+                {
+                    esp_restart();  //Just restart for fast ap-config
+                    s_wifi_is_init = false;
+                }
+                else
+                {
+                    ESP_ERROR_CHECK(esp_wifi_start());
+                }
             }
             if(bits & AP_CONNECTED) {
             }
@@ -670,7 +689,11 @@ void WifiManager::setSTASsidAndPassword(const char *ssid, const char *password)
 void WifiManager::startSTAConnect()
 {
     if(s_wifi_signal)
+    {
+        if(m_wifi_state == 0)
+            this->stopSmartConfig();
         s_wifi_signal->set(STA_CONNECT);
+    }
 }
 
 void WifiManager::setAPSsid(const char *ssid)
@@ -692,7 +715,11 @@ void WifiManager::setAPSsidAndPassword(const char *ssid, const char *password)
 void WifiManager::startAPConnect()
 {
     if(s_wifi_signal)
+    {
+        if(m_wifi_state == 0)
+            this->stopSmartConfig();
         s_wifi_signal->set(AP_CONNECT);
+    }
 }
 
 }
