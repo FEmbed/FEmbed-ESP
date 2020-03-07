@@ -142,7 +142,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
         }
         else
         {
-            log_d("Current is Station config, then start %d!", esp_wifi_connect());
+            log_d("Current is Station config, then start(sta:%d)!", esp_wifi_connect());
         }
         break;
     case SYSTEM_EVENT_STA_STOP:
@@ -336,9 +336,9 @@ void WifiManager::loop()
             if(bits & STA_CONNECT) {
                 m_wifi_state = WIFI_STATE_STA;
                 memset(&wifi_cfg, 0, sizeof(wifi_config_t));
-                strcpy((char *)&wifi_cfg.sta.ssid, m_sta_ssid);
+                strcpy((char *)wifi_cfg.sta.ssid, m_sta_ssid);
                 if(strlen(m_sta_password))
-                    strcpy((char *)&wifi_cfg.sta.password, m_sta_password);
+                    strcpy((char *)wifi_cfg.sta.password, m_sta_password);
                 else
                     wifi_cfg.sta.password[0] = 0;
                 ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
@@ -362,9 +362,9 @@ void WifiManager::loop()
             if(bits & AP_CONNECT) {
                 m_wifi_state = WIFI_STATE_AP;
                 memset(&wifi_cfg, 0, (size_t)sizeof(wifi_ap_config_t));
-                strcpy((char *)&wifi_cfg.ap.ssid, m_ap_ssid);
+                strcpy((char *)wifi_cfg.ap.ssid, m_ap_ssid);
                 wifi_cfg.ap.ssid_len = strlen(m_ap_ssid);
-                strcpy((char *)&wifi_cfg.ap.password, m_ap_password);
+                strcpy((char *)wifi_cfg.ap.password, m_ap_password);
                 wifi_cfg.ap.max_connection = 4;
                 wifi_cfg.ap.authmode = WIFI_AUTH_WPA2_PSK;
                 if (strlen(m_ap_password) == 0) {
@@ -567,10 +567,10 @@ shared_ptr<String>  WifiManager::getWebsocketCPId()
         size_t size;
         if(nvs_get_str(nvs_h, "cpid", NULL, &size) == ESP_OK && size > 0)
         {
-            char *pass = (char *)malloc(size);
-            nvs_get_str(nvs_h, "pass", pass, &size);
-            ret.reset(new String(pass));
-            free(pass);
+            char *cpid = (char *)malloc(size);
+            nvs_get_str(nvs_h, "cpid", cpid, &size);
+            ret.reset(new String(cpid));
+            free(cpid);
         }
         nvs_close(nvs_h);
     }
@@ -606,7 +606,8 @@ void WifiManager::saveRawWebsocketConfig(char *buf)
             return;
         }
         std::shared_ptr<String> ws_host(new String(pch));
-        
+        log_d("Find Host:%s", pch);
+
         pch = strtok(NULL, "\n");
         if(pch == NULL)
         {
@@ -614,17 +615,21 @@ void WifiManager::saveRawWebsocketConfig(char *buf)
             return;
         }
         std::shared_ptr<String> ws_port(new String(pch));
+        log_d("Find Port:%s", pch);
+
         std::shared_ptr<String> ws_url;
         pch = strtok(NULL, "\n");
         if(pch != NULL)
         {
             ws_url.reset(new String(pch));
+            log_d("Find URL:%s", pch);
         }
         std::shared_ptr<String> ws_prot;
         pch = strtok(NULL, "\n");
         if(pch != NULL)
         {
             ws_prot.reset(new String(pch));
+            log_d("Find Prot:%s", pch);
         }
         std::shared_ptr<String> ws_usr;
         std::shared_ptr<String> ws_pass;
@@ -632,9 +637,13 @@ void WifiManager::saveRawWebsocketConfig(char *buf)
         if(pch != NULL)
         {
             ws_usr.reset(new String(pch));
+            log_d("Find User:%s", pch);
             pch = strtok(NULL, "\n");
             if(pch != NULL)
+            {
                 ws_pass.reset(new String(pch));
+                log_d("Find Pass:%s", pch);
+            }
         }
 
         ///< Save config into nvs flash.
@@ -644,7 +653,7 @@ void WifiManager::saveRawWebsocketConfig(char *buf)
             printf("Error (%s) opening NVS handle!\n", esp_err_to_name(err));
         } else {
             nvs_set_str(nvs_h, "host", ws_host->c_str());
-            nvs_set_u32(nvs_h, "port", atoi(ws_url->c_str()));
+            nvs_set_u32(nvs_h, "port", atoi(ws_port->c_str()));
             if(ws_url) 
                 nvs_set_str(nvs_h, "url", ws_url->c_str());
             else
