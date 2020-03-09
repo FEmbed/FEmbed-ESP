@@ -502,7 +502,7 @@ shared_ptr<String> WifiManager::getWebsocketProtocol()
 
 uint32_t WifiManager::getWebsocketPort()
 {
-    uint32_t port;
+    uint32_t port = 0;
     nvs_handle nvs_h;
     esp_err_t err = nvs_open("websocket", NVS_READWRITE, &nvs_h);
     if (err != ESP_OK) {
