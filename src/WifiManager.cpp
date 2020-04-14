@@ -28,6 +28,8 @@
 #include "esp_smartconfig.h"
 #include "smartconfig_ack.h"
 
+#include "app.h"
+
 #include "string.h"
 
 #ifdef  LOG_TAG
@@ -163,6 +165,7 @@ static esp_err_t event_handler(void *ctx, system_event_t *event)
             memset(&wifi_cfg, 0, sizeof(wifi_config_t));
             ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
             ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_cfg));
+            log_w("STA connected information is cleared");
             delay(1000);
             esp_restart();
         }
@@ -345,8 +348,11 @@ void WifiManager::loop()
                 esp_wifi_stop();
                 ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_cfg));
                 ESP_ERROR_CHECK(esp_wifi_start());
-                //log_d("Connect to AP:%s, with pass:***", wifi_cfg.sta.ssid);
+#if TEST
                 log_d("Connect to AP:%s, with pass:%s", wifi_cfg.sta.ssid, wifi_cfg.sta.password);
+#else
+                log_d("Connect to AP:%s, with pass:***", wifi_cfg.sta.ssid);
+#endif
                 s_wifi_is_init = false;
             }
             if(bits & STA_CONNECTED) {
@@ -700,7 +706,9 @@ void WifiManager::startSTAConnect()
     if(s_wifi_signal)
     {
         if(m_wifi_state == 0)
+        {
             this->stopSmartConfig();
+        }
         s_wifi_signal->set(STA_CONNECT);
     }
 }
