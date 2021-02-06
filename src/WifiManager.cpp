@@ -200,51 +200,22 @@ const smartconfig_start_config_t *sc_callback = &_sc_callback;
    If you'd rather not, just change the below entries to strings with
    the config you want - ie #define EXAMPLE_WIFI_SSID "mywifissid"
 */
-static const int WIFI_ESPTOUCH_DONE_BIT = BIT1;
+static const int WIFI_ESPTOUCH_DONE_BIT = BIT20;
 static void smartconfig_task(void * parm);
 static int s_retry_num = 0;
-#define CONFIG_ESP_WIFI_SSID        "LINGDU"
-#define CONFIG_ESP_WIFI_PASSWORD    "878985!Ld"
 #define CONFIG_ESP_MAXIMUM_RETRY    5
-#define EXAMPLE_ESP_WIFI_SSID      CONFIG_ESP_WIFI_SSID
-#define EXAMPLE_ESP_WIFI_PASS      CONFIG_ESP_WIFI_PASSWORD
 #define EXAMPLE_ESP_MAXIMUM_RETRY  CONFIG_ESP_MAXIMUM_RETRY
 #define CONFIG_ESP_WIFI_CHANNEL     1
 #define CONFIG_ESP_MAX_STA_CONN     4
 #define EXAMPLE_ESP_WIFI_CHANNEL   CONFIG_ESP_WIFI_CHANNEL
 #define EXAMPLE_MAX_STA_CONN       CONFIG_ESP_MAX_STA_CONN
-#define WIFI_CONNECTED_BIT          BIT0
-#define WIFI_FAIL_BIT               BIT1
+#define WIFI_CONNECTED_BIT          BIT21
+#define WIFI_FAIL_BIT               BIT22
 
 /* FreeRTOS event group to signal when we are connected*/
 static EventGroupHandle_t s_wifi_event_group;
 
 static const char *STA_TAG = "wifi station";
-
-static void sta_event_handler(void* arg, esp_event_base_t event_base,
-                                int32_t event_id, void* event_data)
-{
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        esp_wifi_connect();
-    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        if (s_retry_num < EXAMPLE_ESP_MAXIMUM_RETRY) {
-            esp_wifi_connect();
-            s_retry_num++;
-            ESP_LOGI(STA_TAG, "retry to connect to the AP");
-        } else {
-            if(s_wifi_signal) s_wifi_signal->set(DISCONNECTED_BIT);
-            xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
-        }
-        ESP_LOGI(STA_TAG,"connect to the AP fail");
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        ESP_LOGI(STA_TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
-        s_retry_num = 0;
-        if(s_wifi_signal) s_wifi_signal->set(CONNECTED_BIT);
-        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-    }
-}
-
 static const char *AP_TAG = "wifi softAP";
 
 static void ap_event_handler(void* arg, esp_event_base_t event_base,
@@ -262,14 +233,13 @@ static void ap_event_handler(void* arg, esp_event_base_t event_base,
 }
 
 static const char *SMART_TAG = "smartconfig";
-
-static void smartconfig_event_handler(void* arg, esp_event_base_t event_base,
+static void stasmartconfig_event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
 {
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        xTaskCreate(smartconfig_task, "smartconfig_task", 4096, NULL, 3, NULL);
         if(WifiManager::get()->wifiState() == WIFI_STATE_SMARTCONFIG)
         {
+            xTaskCreate(smartconfig_task, "smartconfig_task", 4096, NULL, 3, NULL);
             s_wifi_signal->set(SMARTCONFIG_START_BIT);
             log_d("Current is Smartconfig, then start!");
         }
@@ -278,9 +248,20 @@ static void smartconfig_event_handler(void* arg, esp_event_base_t event_base,
             log_d("Current is Station config, then start(sta:%d)!", esp_wifi_connect());
         }
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        esp_wifi_connect();
-        xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+        if (s_retry_num < EXAMPLE_ESP_MAXIMUM_RETRY) {
+            esp_wifi_connect();
+            xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
+            s_retry_num++;
+            ESP_LOGI(STA_TAG, "retry to connect to the AP");
+        } else {
+            if(s_wifi_signal) s_wifi_signal->set(DISCONNECTED_BIT);
+            xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
+        }
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+        ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
+        ESP_LOGI(STA_TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
+        s_retry_num = 0;
+        if(s_wifi_signal) s_wifi_signal->set(CONNECTED_BIT);
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     } else if (event_base == SC_EVENT && event_id == SC_EVENT_SCAN_DONE) {
         ESP_LOGI(SMART_TAG, "Scan done");
@@ -306,6 +287,7 @@ static void smartconfig_event_handler(void* arg, esp_event_base_t event_base,
         memcpy(password, evt->password, sizeof(evt->password));
         ESP_LOGI(SMART_TAG, "SSID:%s", ssid);
         ESP_LOGI(SMART_TAG, "PASSWORD:%s", password);
+        WifiManager::get()->setSTASsidAndPassword((const char *)ssid, (const char *)password);
 
         ESP_ERROR_CHECK( esp_wifi_disconnect() );
         ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
@@ -318,7 +300,7 @@ static void smartconfig_event_handler(void* arg, esp_event_base_t event_base,
 static void smartconfig_task(void * parm)
 {
     EventBits_t uxBits;
-    ESP_ERROR_CHECK( esp_smartconfig_set_type(SC_TYPE_ESPTOUCH) );
+    ESP_ERROR_CHECK( esp_smartconfig_set_type(SC_TYPE_ESPTOUCH_AIRKISS) );
     smartconfig_start_config_t cfg = SMARTCONFIG_START_CONFIG_DEFAULT();
     ESP_ERROR_CHECK( esp_smartconfig_start(&cfg) );
     while (1) {
@@ -383,20 +365,16 @@ void  WifiManager::init()
         ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
         ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
 
+        ESP_ERROR_CHECK( esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &stasmartconfig_event_handler, NULL) );
+        ESP_ERROR_CHECK( esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &stasmartconfig_event_handler, NULL) );
+        ESP_ERROR_CHECK( esp_event_handler_register(SC_EVENT, ESP_EVENT_ANY_ID, &stasmartconfig_event_handler, NULL) );
         if(strlen(m_sta_ssid) > 0 && strlen(m_sta_ssid) < 32)
         {
-            ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &sta_event_handler, NULL));
-            ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &sta_event_handler, NULL));
-
             this->startSTAConnect();
             log_i("Start STA Connect!");
         }
         else
         {
-            ESP_ERROR_CHECK( esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &smartconfig_event_handler, NULL) );
-            ESP_ERROR_CHECK( esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &smartconfig_event_handler, NULL) );
-            ESP_ERROR_CHECK( esp_event_handler_register(SC_EVENT, ESP_EVENT_ANY_ID, &smartconfig_event_handler, NULL) );
-
             this->startSmartConfig();
         }
     }
@@ -415,15 +393,13 @@ void  WifiManager::init()
         wifi_config.ap.channel = EXAMPLE_ESP_WIFI_CHANNEL;
         wifi_config.ap.max_connection = EXAMPLE_MAX_STA_CONN;
         wifi_config.ap.authmode = WIFI_AUTH_WPA_WPA2_PSK;
-        if (strlen(EXAMPLE_ESP_WIFI_PASS) == 0) {
+        if (strlen(m_ap_ssid) == 0) {
             wifi_config.ap.authmode = WIFI_AUTH_OPEN;
         }
 
         ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
         ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
 
-        ESP_LOGI(AP_TAG, "wifi_init_softap finished. SSID:%s password:%s channel:%d",
-                m_ap_ssid, m_ap_password, wifi_config.ap.channel);
         this->startAPConnect();
     }
 }
@@ -493,10 +469,11 @@ void WifiManager::loop()
                 s_wifi_is_init = false;
             }
             if(bits & SMARTCONFIG_START_BIT) {
-                ESP_ERROR_CHECK( esp_smartconfig_set_type(SC_TYPE_ESPTOUCH_AIRKISS) );
-                ESP_ERROR_CHECK( esp_smartconfig_start(sc_callback) );
+                // ESP_ERROR_CHECK( esp_smartconfig_set_type(SC_TYPE_ESPTOUCH_AIRKISS) );
+                // ESP_ERROR_CHECK( esp_smartconfig_start(sc_callback) );
             }
             if(bits & SMARTCONFIG_STOP_BIT) {
+                log_d("Try stop smartconfig.");
                 if(esp_smartconfig_stop())
                 {
                     log_w("Stop smartconfig failed!");
@@ -516,6 +493,7 @@ void WifiManager::loop()
 
             }
             if(bits & STA_CONNECT) {
+                log_d("Try start sta connecting...");
                 m_wifi_state = WIFI_STATE_STA;
                 memset(&wifi_cfg, 0, sizeof(wifi_config_t));
                 strcpy((char *)wifi_cfg.sta.ssid, m_sta_ssid);
