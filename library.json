@@ -1,14 +1,25 @@
 {
-    "name": "ESP32-WiFi",
-    "keywords": "FEmbed, esp32, arduino, wifi",
-    "description": "arduino-esp32 WIFI library",
-    "version": "1.0",
+    "name": "FEmbed-ESP",
+    "keywords": "FEmbed, esp32, wifi",
+    "description": "FEmbed ESP32 wrap library",
+    "authors":
+    {
+        "name": "Gene Kong",
+        "email": "gyx_edu@qq.com",
+        "url": "https://github.com/FastEmbedded/FEmbed-ESP.git"
+    },
+    "repository":
+    {
+        "type": "git",
+        "url": "https://github.com/FastEmbedded/FEmbed-ESP.git"
+    },
+    "version": "0.1.0",
     "frameworks": "espidf",
     "platforms": "espressif32",
     "build": {
         "flags": [
             "-I src",
-            "-DUSE_ESP32_WIFI=1"
+            "-DUSE_ESP32=1"
         ],
         "srcFilter":[
             "+<*.c>",
