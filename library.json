@@ -1,25 +1,14 @@
 {
-    "name": "FEmbed-ESP",
-    "keywords": "FEmbed, esp8266, esp32, wifi",
-    "description": "FEmbed ESP8266/ESP32 wrap library",
-    "authors":
-    {
-        "name": "Gene Kong",
-        "email": "gyx_edu@qq.com",
-        "url": "https://github.com/FastEmbedded/FEmbed-ESP.git"
-    },
-    "repository":
-    {
-        "type": "git",
-        "url": "https://github.com/FastEmbedded/FEmbed-ESP.git"
-    },
-    "version": "0.1.0",
-    "frameworks": "esp8266-rtos-sdk,espidf",
-    "platforms": "custom8266,espressif32",
+    "name": "ESP32-WiFi",
+    "keywords": "FEmbed, esp32, arduino, wifi",
+    "description": "arduino-esp32 WIFI library",
+    "version": "1.0",
+    "frameworks": "espidf",
+    "platforms": "espressif32",
     "build": {
         "flags": [
             "-I src",
-            "-DUSE_ESPRESSIF8266=1"
+            "-DUSE_ESP32_WIFI=1"
         ],
         "srcFilter":[
             "+<*.c>",
@@ -31,7 +20,7 @@
         {
             "name": "FEmbed-Arduino",
             "version": ">=0.1.0",
-            "platforms": ["custom8266", "ststm32", "espressif32"]
+            "platforms": ["espressif32"]
         }
     ]
 }

@@ -1,2 +1,4 @@
 # FEmbed-ESP
-ESP RTOS SDK C++ Wrap
+ESP IDF SDK C++ Wrap, try to be compatible arduino-esp32.
+
+
