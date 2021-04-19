@@ -36,8 +36,7 @@ extern "C" {
 #include <string.h>
 #include <esp_err.h>
 #include <esp_wifi.h>
-#include <esp_event_loop.h>
-#include <esp32-hal.h>
+#include <esp_event.h>
 #include <lwip/ip_addr.h>
 #include "lwip/err.h"
 }

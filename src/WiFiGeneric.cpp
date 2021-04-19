@@ -86,10 +86,6 @@ wifi_event_id_t WiFiEventCbList::current_id = 1;
 // arduino dont like std::vectors move static here
 static std::vector<WiFiEventCbList_t> cbEventList;
 
-bool WiFiGenericClass::_persistent = true;
-bool WiFiGenericClass::_long_range = false;
-wifi_mode_t WiFiGenericClass::_forceSleepLastMode = WIFI_MODE_NULL;
-
 WiFiGenericClass::WiFiGenericClass()
     : FEmbed::OSTask("Wi-Fi",
                      4096,
@@ -98,7 +94,9 @@ WiFiGenericClass::WiFiGenericClass()
     , _network_event_group(new FEmbed::OSSignal())
     , lowLevelInitDone(false)
 {
-
+    _persistent = true;
+    _long_range = false;
+    _forceSleepLastMode = WIFI_MODE_NULL;
 }
 
 WiFiGenericClass::~WiFiGenericClass()

@@ -99,7 +99,7 @@ public:
 protected:
     static bool _smartConfigStarted;
     static bool _smartConfigDone;
-    static void _smartConfigCallback(uint32_t status, void* result);
+    static void _smartConfigCallback(uint32_t event_id, void* event_data);
 
 };
 

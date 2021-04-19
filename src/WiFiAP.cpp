@@ -35,7 +35,7 @@ extern "C" {
 #include <string.h>
 #include <esp_err.h>
 #include <esp_wifi.h>
-#include <esp_event_loop.h>
+#include <esp_event.h>
 #include <lwip/ip_addr.h>
 #include "dhcpserver/dhcpserver_options.h"
 }
@@ -92,7 +92,7 @@ static bool softap_config_equal(const wifi_config_t& lhs, const wifi_config_t& r
 bool WiFiAPClass::softAP(const char* ssid, const char* passphrase, int channel, int ssid_hidden, int max_connection)
 {
 
-    if(!WiFi.enableAP(true)) {
+    if(!WiFi->enableAP(true)) {
         // enable AP failed
         log_e("enable AP first!");
         return false;
@@ -147,7 +147,7 @@ bool WiFiAPClass::softAP(const char* ssid, const char* passphrase, int channel, 
 bool WiFiAPClass::softAPConfig(IPAddress local_ip, IPAddress gateway, IPAddress subnet)
 {
 
-    if(!WiFi.enableAP(true)) {
+    if(!WiFi->enableAP(true)) {
         // enable AP failed
         return false;
     }
@@ -198,7 +198,7 @@ bool WiFiAPClass::softAPdisconnect(bool wifioff)
     ret = esp_wifi_set_config(WIFI_IF_AP, &conf) == ESP_OK;
 
     if(wifioff) {
-        ret = WiFi.enableAP(false) == ESP_OK;
+        ret = WiFi->enableAP(false) == ESP_OK;
     }
 
     return ret;

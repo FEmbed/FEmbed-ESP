@@ -41,7 +41,7 @@ class WiFiClass :
     public WiFiSTAClass,
     public WiFiScanClass,
     public WiFiAPClass,
-    FEmbed::Service<WiFiClass>
+    public FEmbed::Service<WiFiClass>
 {
 private:
     bool prov_enable;
