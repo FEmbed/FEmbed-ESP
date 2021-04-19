@@ -5,11 +5,16 @@ set(include)
 set(priv_requires)
 
 set(srcs    "src/WifiManager.cpp"
+            "src/WiFiGeneric.cpp"
+            "src/WiFiSTA.cpp"
+            "src/WiFiAP.cpp"
+            "src/WiFiScan.cpp"
+            "src/WiFi.cpp"
             )
 set(include "src" 
             )
 
 idf_component_register(SRCS "${srcs}"
                        INCLUDE_DIRS ${include}
-                       REQUIRES "FEmbed-Arduino FEmbed-OS nvs_flash"
+                       REQUIRES "FEmbed-Arduino FEmbed-OS nvs_flash wifi_provisioning"
                        PRIV_REQUIRES ${priv_requires})
