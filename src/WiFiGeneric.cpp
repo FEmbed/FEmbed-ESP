@@ -90,7 +90,7 @@ WiFiGenericClass::WiFiGenericClass()
     : FEmbed::OSTask("Wi-Fi",
                      4096,
                      configMAX_PRIORITIES - 1)
-    , _network_event_queue(new FEmbed::OSMessage<system_prov_event_t *, 32>>())
+    , _network_event_queue(new FEmbed::OSMessage<system_prov_event_t *, 32>())
     , _network_event_group(new FEmbed::OSSignal())
     , lowLevelInitDone(false)
 {
