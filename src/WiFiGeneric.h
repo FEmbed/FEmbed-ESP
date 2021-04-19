@@ -123,6 +123,8 @@ class WiFiGenericClass :
     esp_err_t _eventCallback(void *arg, system_event_t *event, wifi_prov_event_t *prov_event);
 
     virtual void loop();
+
+    FE_NOTIFY_SIGNAL(14, WifiDNSDone, _network_event_group)
   protected:
     bool _persistent;
     bool _long_range;

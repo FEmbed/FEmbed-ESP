@@ -758,7 +758,7 @@ void WiFiSTAClass::_smartConfigCallback(uint32_t event_id, void* event_data) {
         ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
         esp_wifi_connect();
         _smartConfigDone = true;
-    } else if (status == SC_EVENT_SCAN_DONE) {
+    } else if (event_id == SC_EVENT_SCAN_DONE) {
         WiFi->stopSmartConfig();
     }
 }

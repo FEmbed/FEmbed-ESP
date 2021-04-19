@@ -166,8 +166,8 @@ bool WiFiAPClass::softAPConfig(IPAddress local_ip, IPAddress gateway, IPAddress 
         lease.end_ip.addr = static_cast<uint32_t>(local_ip) + (11 << 24);
 
         tcpip_adapter_dhcps_option(
-            (tcpip_adapter_option_mode_t)TCPIP_ADAPTER_OP_SET,
-            (tcpip_adapter_option_id_t)REQUESTED_IP_ADDRESS,
+            ESP_NETIF_OP_SET,
+            ESP_NETIF_REQUESTED_IP_ADDRESS,
             (void*)&lease, sizeof(dhcps_lease_t)
         );
 
@@ -188,7 +188,7 @@ bool WiFiAPClass::softAPdisconnect(bool wifioff)
     bool ret;
     wifi_config_t conf;
 
-    if(WiFiGenericClass::getMode() == WIFI_MODE_NULL){
+    if(WiFi->getMode() == WIFI_MODE_NULL){
         return ESP_ERR_INVALID_STATE;
     }
 
@@ -212,7 +212,7 @@ bool WiFiAPClass::softAPdisconnect(bool wifioff)
 uint8_t WiFiAPClass::softAPgetStationNum()
 {
     wifi_sta_list_t clients;
-    if(WiFiGenericClass::getMode() == WIFI_MODE_NULL){
+    if(WiFi->getMode() == WIFI_MODE_NULL){
         return 0;
     }
     if(esp_wifi_ap_get_sta_list(&clients) == ESP_OK) {
@@ -228,7 +228,7 @@ uint8_t WiFiAPClass::softAPgetStationNum()
 IPAddress WiFiAPClass::softAPIP()
 {
     tcpip_adapter_ip_info_t ip;
-    if(WiFiGenericClass::getMode() == WIFI_MODE_NULL){
+    if(WiFi->getMode() == WIFI_MODE_NULL){
         return IPAddress();
     }
     tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip);
@@ -242,11 +242,11 @@ IPAddress WiFiAPClass::softAPIP()
 IPAddress WiFiAPClass::softAPBroadcastIP()
 {
     tcpip_adapter_ip_info_t ip;
-    if(WiFiGenericClass::getMode() == WIFI_MODE_NULL){
+    if(WiFi->getMode() == WIFI_MODE_NULL){
         return IPAddress();
     }
     tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip);
-    return WiFiGenericClass::calculateBroadcast(IPAddress(ip.gw.addr), IPAddress(ip.netmask.addr));
+    return WiFi->calculateBroadcast(IPAddress(ip.gw.addr), IPAddress(ip.netmask.addr));
 }
 
 /**
@@ -256,11 +256,11 @@ IPAddress WiFiAPClass::softAPBroadcastIP()
 IPAddress WiFiAPClass::softAPNetworkID()
 {
     tcpip_adapter_ip_info_t ip;
-    if(WiFiGenericClass::getMode() == WIFI_MODE_NULL){
+    if(WiFi->getMode() == WIFI_MODE_NULL){
         return IPAddress();
     }
     tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip);
-    return WiFiGenericClass::calculateNetworkID(IPAddress(ip.gw.addr), IPAddress(ip.netmask.addr));
+    return WiFi->calculateNetworkID(IPAddress(ip.gw.addr), IPAddress(ip.netmask.addr));
 }
 
 /**
@@ -270,11 +270,11 @@ IPAddress WiFiAPClass::softAPNetworkID()
 uint8_t WiFiAPClass::softAPSubnetCIDR()
 {
     tcpip_adapter_ip_info_t ip;
-    if(WiFiGenericClass::getMode() == WIFI_MODE_NULL){
+    if(WiFi->getMode() == WIFI_MODE_NULL){
         return (uint8_t)0;
     }
     tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_AP, &ip);
-    return WiFiGenericClass::calculateSubnetCIDR(IPAddress(ip.netmask.addr));
+    return WiFi->calculateSubnetCIDR(IPAddress(ip.netmask.addr));
 }
 
 /**
@@ -284,7 +284,7 @@ uint8_t WiFiAPClass::softAPSubnetCIDR()
  */
 uint8_t* WiFiAPClass::softAPmacAddress(uint8_t* mac)
 {
-    if(WiFiGenericClass::getMode() != WIFI_MODE_NULL){
+    if(WiFi->getMode() != WIFI_MODE_NULL){
         esp_wifi_get_mac(WIFI_IF_AP, mac);
     }
     return mac;
@@ -298,7 +298,7 @@ String WiFiAPClass::softAPmacAddress(void)
 {
     uint8_t mac[6];
     char macStr[18] = { 0 };
-    if(WiFiGenericClass::getMode() == WIFI_MODE_NULL){
+    if(WiFi->getMode() == WIFI_MODE_NULL){
         return String();
     }
     esp_wifi_get_mac(WIFI_IF_AP, mac);
@@ -314,7 +314,7 @@ String WiFiAPClass::softAPmacAddress(void)
 const char * WiFiAPClass::softAPgetHostname()
 {
     const char * hostname = NULL;
-    if(WiFiGenericClass::getMode() == WIFI_MODE_NULL){
+    if(WiFi->getMode() == WIFI_MODE_NULL){
         return hostname;
     }
     if(tcpip_adapter_get_hostname(TCPIP_ADAPTER_IF_AP, &hostname)) {
@@ -330,7 +330,7 @@ const char * WiFiAPClass::softAPgetHostname()
  */
 bool WiFiAPClass::softAPsetHostname(const char * hostname)
 {
-    if(WiFiGenericClass::getMode() == WIFI_MODE_NULL){
+    if(WiFi->getMode() == WIFI_MODE_NULL){
         return false;
     }
     return tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_AP, hostname) == ESP_OK;
@@ -342,7 +342,7 @@ bool WiFiAPClass::softAPsetHostname(const char * hostname)
  */
 bool WiFiAPClass::softAPenableIpV6()
 {
-    if(WiFiGenericClass::getMode() == WIFI_MODE_NULL){
+    if(WiFi->getMode() == WIFI_MODE_NULL){
         return false;
     }
     return tcpip_adapter_create_ip6_linklocal(TCPIP_ADAPTER_IF_AP) == ESP_OK;
@@ -355,7 +355,7 @@ bool WiFiAPClass::softAPenableIpV6()
 IPv6Address WiFiAPClass::softAPIPv6()
 {
     static ip6_addr_t addr;
-    if(WiFiGenericClass::getMode() == WIFI_MODE_NULL){
+    if(WiFi->getMode() == WIFI_MODE_NULL){
         return IPv6Address();
     }
     if(tcpip_adapter_get_ip6_linklocal(TCPIP_ADAPTER_IF_AP, &addr)) {
