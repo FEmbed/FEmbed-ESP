@@ -85,7 +85,6 @@ WiFiSTAClass::WiFiSTAClass()
 
 WiFiSTAClass::~WiFiSTAClass()
 {
-
 }
 
 void WiFiSTAClass::_setStatus(wl_status_t status)
@@ -169,13 +168,15 @@ wl_status_t WiFiSTAClass::begin(const char* ssid, const char *passphrase, int32_
         esp_wifi_set_config(WIFI_IF_STA, &conf);
     }
 
+    esp_netif_t *_sta = (esp_netif_t *)WiFi->_default_sta;
     if(!_useStaticIp) {
-        if(tcpip_adapter_dhcpc_start(TCPIP_ADAPTER_IF_STA) == ESP_ERR_TCPIP_ADAPTER_DHCPC_START_FAILED){
+        if(	(_sta == NULL) ||
+        	(esp_netif_dhcpc_start(_sta) == ESP_ERR_TCPIP_ADAPTER_DHCPC_START_FAILED)) {
             log_e("dhcp client start failed!");
             return WL_CONNECT_FAILED;
         }
     } else {
-        tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_STA);
+    	if(_sta != NULL) esp_netif_dhcpc_stop(_sta);
     }
 
     if(connect && esp_wifi_connect()) {
@@ -197,7 +198,6 @@ wl_status_t WiFiSTAClass::begin(char* ssid, char *passphrase, int32_t channel, c
  */
 wl_status_t WiFiSTAClass::begin()
 {
-
     if(!WiFi->enableSTA(true)) {
         log_e("STA enable failed!");
         return WL_CONNECT_FAILED;
@@ -209,18 +209,15 @@ wl_status_t WiFiSTAClass::begin()
         return WL_CONNECT_FAILED;
     }
 
+    esp_netif_t *_sta = (esp_netif_t *)WiFi->_default_sta;
     if(!_useStaticIp) {
-        if(tcpip_adapter_dhcpc_start(TCPIP_ADAPTER_IF_STA) == ESP_ERR_TCPIP_ADAPTER_DHCPC_START_FAILED){
+        if(	(_sta == NULL) ||
+        	(esp_netif_dhcpc_start(_sta) == ESP_ERR_TCPIP_ADAPTER_DHCPC_START_FAILED)) {
             log_e("dhcp client start failed!");
             return WL_CONNECT_FAILED;
         }
     } else {
-        tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_STA);
-    }
-
-    if(status() != WL_CONNECTED && esp_wifi_connect()){
-        log_e("connect failed!");
-        return WL_CONNECT_FAILED;
+    	if(_sta != NULL) esp_netif_dhcpc_stop(_sta);
     }
 
     return status();
@@ -285,7 +282,7 @@ bool WiFiSTAClass::config(IPAddress local_ip, IPAddress gateway, IPAddress subne
         return false;
     }
 
-    tcpip_adapter_ip_info_t info;
+    esp_netif_ip_info_t info;
 
     if(local_ip != (uint32_t)0x00000000 && local_ip != INADDR_NONE){
         info.ip.addr = static_cast<uint32_t>(local_ip);
@@ -297,13 +294,20 @@ bool WiFiSTAClass::config(IPAddress local_ip, IPAddress gateway, IPAddress subne
         info.netmask.addr = 0;
     }
 
-    err = tcpip_adapter_dhcpc_stop(TCPIP_ADAPTER_IF_STA);
+    esp_netif_t *_sta = (esp_netif_t *)WiFi->_default_sta;
+    if(_sta == NULL)
+    {
+    	log_e("STA netif init failed!");
+    	return false;
+    }
+
+    err = esp_netif_dhcpc_stop(_sta);
     if(err != ESP_OK && err != ESP_ERR_TCPIP_ADAPTER_DHCP_ALREADY_STOPPED){
         log_e("DHCP could not be stopped! Error: %d", err);
         return false;
     }
 
-    err = tcpip_adapter_set_ip_info(TCPIP_ADAPTER_IF_STA, &info);
+    err = esp_netif_set_ip_info(_sta, &info);
     if(err != ERR_OK){
         log_e("STA IP could not be configured! Error: %d", err);
         return false;
@@ -312,7 +316,7 @@ bool WiFiSTAClass::config(IPAddress local_ip, IPAddress gateway, IPAddress subne
     if(info.ip.addr){
         _useStaticIp = true;
     } else {
-        err = tcpip_adapter_dhcpc_start(TCPIP_ADAPTER_IF_STA);
+        err = esp_netif_dhcpc_start(_sta);
         if(err == ESP_ERR_TCPIP_ADAPTER_DHCPC_START_FAILED){
             log_e("dhcp client start failed!");
             return false;
@@ -410,11 +414,13 @@ uint8_t WiFiSTAClass::waitForConnectResult()
  */
 IPAddress WiFiSTAClass::localIP()
 {
-    if(WiFi->getMode() == WIFI_MODE_NULL){
+    esp_netif_t *_sta = (esp_netif_t *)WiFi->_default_sta;
+    if(WiFi->getMode() == WIFI_MODE_NULL || _sta == NULL){
         return IPAddress();
     }
-    tcpip_adapter_ip_info_t ip;
-    tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip);
+
+    esp_netif_ip_info_t ip;
+    esp_netif_get_ip_info(_sta, &ip);
     return IPAddress(ip.ip.addr);
 }
 
@@ -459,11 +465,13 @@ String WiFiSTAClass::macAddress(void)
  */
 IPAddress WiFiSTAClass::subnetMask()
 {
-    if(WiFi->getMode() == WIFI_MODE_NULL){
+    esp_netif_t *_sta = (esp_netif_t *)WiFi->_default_sta;
+    if(WiFi->getMode() == WIFI_MODE_NULL || _sta == NULL){
         return IPAddress();
     }
-    tcpip_adapter_ip_info_t ip;
-    tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip);
+
+    esp_netif_ip_info_t ip;
+    esp_netif_get_ip_info(_sta, &ip);
     return IPAddress(ip.netmask.addr);
 }
 
@@ -473,11 +481,12 @@ IPAddress WiFiSTAClass::subnetMask()
  */
 IPAddress WiFiSTAClass::gatewayIP()
 {
-    if(WiFi->getMode() == WIFI_MODE_NULL){
+    esp_netif_t *_sta = (esp_netif_t *)WiFi->_default_sta;
+    if(WiFi->getMode() == WIFI_MODE_NULL || _sta == NULL){
         return IPAddress();
     }
-    tcpip_adapter_ip_info_t ip;
-    tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip);
+    esp_netif_ip_info_t ip;
+    esp_netif_get_ip_info(_sta, &ip);
     return IPAddress(ip.gw.addr);
 }
 
@@ -501,11 +510,12 @@ IPAddress WiFiSTAClass::dnsIP(uint8_t dns_no)
  */
 IPAddress WiFiSTAClass::broadcastIP()
 {
-    if(WiFi->getMode() == WIFI_MODE_NULL){
+    esp_netif_t *_sta = (esp_netif_t *)WiFi->_default_sta;
+    if(WiFi->getMode() == WIFI_MODE_NULL || _sta == NULL){
         return IPAddress();
     }
-    tcpip_adapter_ip_info_t ip;
-    tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip);
+    esp_netif_ip_info_t ip;
+    esp_netif_get_ip_info(_sta, &ip);
     return WiFi->calculateBroadcast(IPAddress(ip.gw.addr), IPAddress(ip.netmask.addr));
 }
 
@@ -515,11 +525,12 @@ IPAddress WiFiSTAClass::broadcastIP()
  */
 IPAddress WiFiSTAClass::networkID()
 {
-    if(WiFi->getMode() == WIFI_MODE_NULL){
+    esp_netif_t *_sta = (esp_netif_t *)WiFi->_default_sta;
+    if(WiFi->getMode() == WIFI_MODE_NULL || _sta == NULL){
         return IPAddress();
     }
-    tcpip_adapter_ip_info_t ip;
-    tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip);
+    esp_netif_ip_info_t ip;
+    esp_netif_get_ip_info(_sta, &ip);
     return WiFi->calculateNetworkID(IPAddress(ip.gw.addr), IPAddress(ip.netmask.addr));
 }
 
@@ -529,11 +540,12 @@ IPAddress WiFiSTAClass::networkID()
  */
 uint8_t WiFiSTAClass::subnetCIDR()
 {
-    if(WiFi->getMode() == WIFI_MODE_NULL){
+    esp_netif_t *_sta = (esp_netif_t *)WiFi->_default_sta;
+    if(WiFi->getMode() == WIFI_MODE_NULL || _sta == NULL){
         return (uint8_t)0;
     }
-    tcpip_adapter_ip_info_t ip;
-    tcpip_adapter_get_ip_info(TCPIP_ADAPTER_IF_STA, &ip);
+    esp_netif_ip_info_t ip;
+    esp_netif_get_ip_info(_sta, &ip);
     return WiFi->calculateSubnetCIDR(IPAddress(ip.netmask.addr));
 }
 
@@ -623,10 +635,11 @@ int8_t WiFiSTAClass::RSSI(void)
 const char * WiFiSTAClass::getHostname()
 {
     const char * hostname = NULL;
-    if(WiFi->getMode() == WIFI_MODE_NULL){
+    esp_netif_t *_sta = (esp_netif_t *)WiFi->_default_sta;
+    if(WiFi->getMode() == WIFI_MODE_NULL || _sta == NULL){
         return hostname;
     }
-    if(tcpip_adapter_get_hostname(TCPIP_ADAPTER_IF_STA, &hostname)){
+    if(esp_netif_get_hostname(_sta, &hostname)){
         return NULL;
     }
     return hostname;
@@ -640,10 +653,11 @@ const char * WiFiSTAClass::getHostname()
 bool WiFiSTAClass::setHostname(const char * hostname)
 {
     _hostname = hostname;
-    if(WiFi->getMode() == WIFI_MODE_NULL){
+    esp_netif_t *_sta = (esp_netif_t *)WiFi->_default_sta;
+    if(WiFi->getMode() == WIFI_MODE_NULL || _sta == NULL){
         return false;
     }
-    return tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, hostname) == 0;
+    return esp_netif_set_hostname(_sta, hostname) == 0;
 }
 
 /**
@@ -652,10 +666,11 @@ bool WiFiSTAClass::setHostname(const char * hostname)
  */
 bool WiFiSTAClass::enableIpV6()
 {
-    if(WiFi->getMode() == WIFI_MODE_NULL){
+    esp_netif_t *_sta = (esp_netif_t *)WiFi->_default_sta;
+    if(WiFi->getMode() == WIFI_MODE_NULL || _sta == NULL){
         return false;
     }
-    return tcpip_adapter_create_ip6_linklocal(TCPIP_ADAPTER_IF_STA) == 0;
+    return esp_netif_create_ip6_linklocal(_sta) == 0;
 }
 
 /**
@@ -664,11 +679,12 @@ bool WiFiSTAClass::enableIpV6()
  */
 IPv6Address WiFiSTAClass::localIPv6()
 {
-    static ip6_addr_t addr;
-    if(WiFi->getMode() == WIFI_MODE_NULL){
+    static esp_ip6_addr_t addr;
+    esp_netif_t *_sta = (esp_netif_t *)WiFi->_default_sta;
+    if(WiFi->getMode() == WIFI_MODE_NULL || _sta == NULL){
         return IPv6Address();
     }
-    if(tcpip_adapter_get_ip6_linklocal(TCPIP_ADAPTER_IF_STA, &addr)){
+    if(esp_netif_get_ip6_linklocal(_sta, &addr)){
         return IPv6Address();
     }
     return IPv6Address(addr.addr);

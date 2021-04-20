@@ -69,32 +69,24 @@ static bool _esp_wifi_started = false;
 // ------------------------------------------------- Generic WiFi function -----------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------
 
-WiFiGenericClass::WiFiGenericClass()
-    : FEmbed::OSTask("Wi-Fi",
-                     4096,
-                     configMAX_PRIORITIES - 1)
-    , _network_event_group(new FEmbed::OSSignal())
+WiFiGenericClass::WiFiGenericClass():
+      _network_event_group(new FEmbed::OSSignal())
     , lowLevelInitDone(false)
 {
     _persistent = true;
     _long_range = false;
     _forceSleepLastMode = WIFI_MODE_NULL;
+    _default_sta = NULL;
+    _default_ap = NULL;
 }
 
 WiFiGenericClass::~WiFiGenericClass()
 {
 }
 
-void WiFiGenericClass::loop(){
-    for (;;) {
-    	delay(1000);
-    }
-}
-
 bool WiFiGenericClass::_start_network_event_task(){
     _network_event_group->set(WIFI_DNS_IDLE_BIT);
     nvs_flash_init();
-    this->start();
     esp_event_loop_create_default();
     return true;
 }
@@ -121,10 +113,10 @@ bool WiFiGenericClass::wifiLowLevelInit(bool persistent, wifi_mode_t m){
         switch(m)
         {
             case WIFI_MODE_STA:
-                esp_netif_create_default_wifi_sta();
+            	_default_sta = esp_netif_create_default_wifi_sta();
                 break;
             case WIFI_MODE_AP:
-                esp_netif_create_default_wifi_ap();
+            	_default_ap = esp_netif_create_default_wifi_ap();
                 break;
             case WIFI_MODE_APSTA:
                 break;

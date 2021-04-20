@@ -66,8 +66,7 @@ static const int WIFI_SCAN_DONE_BIT= BIT12;
 static const int WIFI_DNS_IDLE_BIT = BIT13;
 static const int WIFI_DNS_DONE_BIT = BIT14;
 
-class WiFiGenericClass :
-    public FEmbed::OSTask
+class WiFiGenericClass
 {
   public:
     WiFiGenericClass();
@@ -94,13 +93,13 @@ class WiFiGenericClass :
     bool setTxPower(wifi_power_t power);
     wifi_power_t getTxPower();
 
-    virtual void loop();
-
     FE_NOTIFY_SIGNAL(14, WifiDNSDone, _network_event_group)
   protected:
     bool _persistent;
     bool _long_range;
     wifi_mode_t _forceSleepLastMode;
+    void *_default_sta;
+    void *_default_ap;
 
     int setStatusBits(int bits);
     int clearStatusBits(int bits);

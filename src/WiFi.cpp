@@ -37,6 +37,10 @@ extern "C" {
 #include <esp_mesh.h>
 }
 
+#ifdef  LOG_TAG
+    #undef  LOG_TAG
+#endif
+#define LOG_TAG                             "WiFi"
 
 // -----------------------------------------------------------------------------------------------------------------------
 // ---------------------------------------------------------- Debug ------------------------------------------------------
@@ -125,6 +129,7 @@ esp_err_t WiFiClass::_eventCallback(esp_event_base_t event_base,
 
 void WiFiClass::_wifiCallback(uint32_t event_id, void* event_data)
 {
+	log_d("Get common WiFi evt %d.", event_id);
 	switch(event_id)
 	{
 		case WIFI_EVENT_WIFI_READY:           	 /**< ESP32 WiFi ready */
@@ -135,7 +140,10 @@ void WiFiClass::_wifiCallback(uint32_t event_id, void* event_data)
 		case WIFI_EVENT_STA_START:               /**< ESP32 station start */
 	        WiFiSTAClass::_setStatus(WL_DISCONNECTED);
 	        setStatusBits(STA_STARTED_BIT);
-	        tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, WiFiSTAClass::_hostname.c_str());
+	        if(_default_sta != NULL)
+	        	esp_netif_set_hostname((esp_netif_t*)_default_sta, WiFiSTAClass::_hostname.c_str());
+	        else
+	        	log_w("STA netif init failed.");
 			break;
 		case WIFI_EVENT_STA_STOP:                /**< ESP32 station stop */
 	        WiFiSTAClass::_setStatus(WL_NO_SHIELD);
@@ -226,15 +234,15 @@ void WiFiClass::_ipCallback(uint32_t event_id, void* event_data)
 	{
 	case IP_EVENT_STA_GOT_IP:               /*!< station got IP from connected AP */
 	{
-#if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
-		system_event_t *event = (system_event_t *)event_data;
-        uint8_t * ip = (uint8_t *)&(event->event_info.got_ip.ip_info.ip.addr);
-        uint8_t * mask = (uint8_t *)&(event->event_info.got_ip.ip_info.netmask.addr);
-        uint8_t * gw = (uint8_t *)&(event->event_info.got_ip.ip_info.gw.addr);
-        log_d("STA IP: %u.%u.%u.%u, MASK: %u.%u.%u.%u, GW: %u.%u.%u.%u",
-            ip[0], ip[1], ip[2], ip[3],
-            mask[0], mask[1], mask[2], mask[3],
-            gw[0], gw[1], gw[2], gw[3]);
+#if 0	// espidf has useful logs.
+		if(_default_sta != NULL)
+		{
+	    const ip_event_got_ip_t *event = (const ip_event_got_ip_t *) event_data;
+	    log_d("%s ip: " IPSTR ", mask: " IPSTR ", gw: " IPSTR, esp_netif_get_desc((esp_netif_t *)_default_sta),
+	             IP2STR(&event->ip_info.ip),
+	             IP2STR(&event->ip_info.netmask),
+	             IP2STR(&event->ip_info.gw));
+		}
 #endif
         WiFiSTAClass::_setStatus(WL_CONNECTED);
         setStatusBits(STA_HAS_IP_BIT | STA_CONNECTED_BIT);
@@ -248,12 +256,12 @@ void WiFiClass::_ipCallback(uint32_t event_id, void* event_data)
 		break;
 	case IP_EVENT_GOT_IP6:                  /*!< station or ap or ethernet interface v6IP addr is preferred */
 	{
-		system_event_t *event = (system_event_t *)event_data;
-        if(event->event_info.got_ip6.if_index == TCPIP_ADAPTER_IF_AP){
+		ip_event_got_ip6_t *event = (ip_event_got_ip6_t *)event_data;
+        if(event->if_index == TCPIP_ADAPTER_IF_AP){
             setStatusBits(AP_HAS_IP6_BIT);
-        } else if(event->event_info.got_ip6.if_index == TCPIP_ADAPTER_IF_STA){
+        } else if(event->if_index == TCPIP_ADAPTER_IF_STA){
             setStatusBits(STA_CONNECTED_BIT | STA_HAS_IP6_BIT);
-        } else if(event->event_info.got_ip6.if_index == TCPIP_ADAPTER_IF_ETH){
+        } else if(event->if_index == TCPIP_ADAPTER_IF_ETH){
             setStatusBits(ETH_CONNECTED_BIT | ETH_HAS_IP6_BIT);
         }
 		break;

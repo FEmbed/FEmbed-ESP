@@ -73,6 +73,11 @@ public:
 
     void enableProv(bool status);
     bool isProvEnabled();
+
+    friend WiFiGenericClass;
+    friend WiFiSTAClass;
+    friend WiFiScanClass;
+    friend WiFiAPClass;
 private:
     void _wifiCallback(uint32_t event_id, void* event_data);
     void _ipCallback(uint32_t event_id, void* event_data);
