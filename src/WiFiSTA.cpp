@@ -87,7 +87,7 @@ WiFiSTAClass::~WiFiSTAClass()
 {
 }
 
-void WiFiSTAClass::_setStatus(wl_status_t status)
+void WiFiSTAClass::setStatus(wl_status_t status)
 {
 	FEmbed::OSMutexLocker locker(_lock);
 	_status = status;
@@ -114,7 +114,7 @@ wl_status_t WiFiSTAClass::status()
  * @param connect                   Optional. call connect
  * @return
  */
-wl_status_t WiFiSTAClass::begin(const char* ssid, const char *passphrase, int32_t channel, const uint8_t* bssid, bool connect)
+wl_status_t WiFiSTAClass::begin(const char* ssid, const char *passphrase, int32_t channel, const uint8_t* bssid)
 {
 
     if(!WiFi->enableSTA(true)) {
@@ -132,6 +132,7 @@ wl_status_t WiFiSTAClass::begin(const char* ssid, const char *passphrase, int32_
         return WL_CONNECT_FAILED;
     }
 
+    ///< Create wifi config from parameters.
     wifi_config_t conf;
     memset(&conf, 0, sizeof(wifi_config_t));
     strcpy(reinterpret_cast<char*>(conf.sta.ssid), ssid);
@@ -156,16 +157,19 @@ wl_status_t WiFiSTAClass::begin(const char* ssid, const char *passphrase, int32_
     wifi_config_t current_conf;
     esp_wifi_get_config(WIFI_IF_STA, &current_conf);
     if(!sta_config_equal(current_conf, conf)) {
-        if(esp_wifi_disconnect()){
-            log_e("disconnect failed!");
-            return WL_CONNECT_FAILED;
-        }
-
+//        if(esp_wifi_disconnect()){
+//            log_e("disconnect failed!");
+//            return WL_CONNECT_FAILED;
+//        }
         esp_wifi_set_config(WIFI_IF_STA, &conf);
     } else if(status() == WL_CONNECTED){
         return WL_CONNECTED;
     } else {
         esp_wifi_set_config(WIFI_IF_STA, &conf);
+    }
+
+    if(!WiFi->espWiFiStart()){
+        return WL_CONNECT_FAILED;
     }
 
     esp_netif_t *_sta = (esp_netif_t *)WiFi->_default_sta;
@@ -179,17 +183,12 @@ wl_status_t WiFiSTAClass::begin(const char* ssid, const char *passphrase, int32_
     	if(_sta != NULL) esp_netif_dhcpc_stop(_sta);
     }
 
-    if(connect && esp_wifi_connect()) {
-        log_e("connect failed!");
-        return WL_CONNECT_FAILED;
-    }
-
     return status();
 }
 
-wl_status_t WiFiSTAClass::begin(char* ssid, char *passphrase, int32_t channel, const uint8_t* bssid, bool connect)
+wl_status_t WiFiSTAClass::begin(char* ssid, char *passphrase, int32_t channel, const uint8_t* bssid)
 {
-    return begin((const char*) ssid, (const char*) passphrase, channel, bssid, connect);
+    return begin((const char*) ssid, (const char*) passphrase, channel, bssid);
 }
 
 /**
@@ -206,6 +205,10 @@ wl_status_t WiFiSTAClass::begin()
     wifi_config_t current_conf;
     if(esp_wifi_get_config(WIFI_IF_STA, &current_conf) != ESP_OK || esp_wifi_set_config(WIFI_IF_STA, &current_conf) != ESP_OK) {
         log_e("config failed");
+        return WL_CONNECT_FAILED;
+    }
+
+    if(!WiFi->espWiFiStart()){
         return WL_CONNECT_FAILED;
     }
 
@@ -234,26 +237,34 @@ bool WiFiSTAClass::reconnect()
             return esp_wifi_connect() == ESP_OK;
         }
     }
+    else if(WiFi->getMode() == WIFI_MODE_NULL)
+    {
+    	this->begin();
+    	return true;
+    }
     return false;
 }
 
 /**
- * Disconnect from the network
- * @param wifioff
- * @return  one value of wl_status_t enum
+ * @fn bool disconnect(bool, bool)
+ *
+ * @param wifioff disable wifi module
+ * @param eraseap erase config
+ *
+ * @return disconnect successful or not.
  */
 bool WiFiSTAClass::disconnect(bool wifioff, bool eraseap)
 {
     wifi_config_t conf;
 
     if(WiFi->getMode() & WIFI_MODE_STA){
-        if(eraseap){
+        if(eraseap) {
             memset(&conf, 0, sizeof(wifi_config_t));
             if(esp_wifi_set_config(WIFI_IF_STA, &conf)){
                 log_e("clear config failed!");
             }
         }
-        if(esp_wifi_disconnect()){
+        if(esp_wifi_disconnect()) {
             log_e("disconnect failed!");
             return false;
         }

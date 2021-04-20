@@ -39,8 +39,8 @@ public:
 	WiFiSTAClass();
 	~WiFiSTAClass();
 
-    wl_status_t begin(const char* ssid, const char *passphrase = NULL, int32_t channel = 0, const uint8_t* bssid = NULL, bool connect = true);
-    wl_status_t begin(char* ssid, char *passphrase = NULL, int32_t channel = 0, const uint8_t* bssid = NULL, bool connect = true);
+    wl_status_t begin(const char* ssid, const char *passphrase = NULL, int32_t channel = 0, const uint8_t* bssid = NULL);
+    wl_status_t begin(char* ssid, char *passphrase = NULL, int32_t channel = 0, const uint8_t* bssid = NULL);
     wl_status_t begin();
 
     bool config(IPAddress local_ip, IPAddress gateway, IPAddress subnet, IPAddress dns1 = (uint32_t)0x00000000, IPAddress dns2 = (uint32_t)0x00000000);
@@ -88,7 +88,7 @@ public:
 
     int8_t RSSI();
 
-    void _setStatus(wl_status_t status);
+    void setStatus(wl_status_t status);
     String _hostname;
 protected:
     bool _useStaticIp;

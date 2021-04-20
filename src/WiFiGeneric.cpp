@@ -58,10 +58,7 @@ static void event_handler(void* event_handler_arg,
                                 esp_event_base_t event_base,
                                 int32_t event_id,
                                 void* event_data) {
-	if (event_handler_arg != NULL)
-	{
-		((WiFiClass *)event_handler_arg)->_eventCallback(event_base, event_id, event_data);
-	}
+	WiFi->_eventCallback(event_base, event_id, event_data);
 }
 
 static bool _esp_wifi_started = false;
@@ -84,32 +81,57 @@ WiFiGenericClass::~WiFiGenericClass()
 {
 }
 
-bool WiFiGenericClass::_start_network_event_task(){
-    _network_event_group->set(WIFI_DNS_IDLE_BIT);
-    nvs_flash_init();
-    esp_event_loop_create_default();
-    return true;
-}
-
-void WiFiGenericClass::tcpipInit(){
-    static bool initialized = false;
-    if(!initialized && _start_network_event_task()){
-        initialized = true;        
-        esp_netif_init();
-    }
-}
-
 bool WiFiGenericClass::wifiLowLevelDeinit() {
-    //deinit not working yet!
-    // esp_netif_deinit();
+	log_d("wifiLowLevelDeinit begin");
+	if(lowLevelInitDone)
+	{
+		//1. Unregister all WiFi events into current object.
+		esp_event_handler_unregister(WIFI_EVENT, 		ESP_EVENT_ANY_ID, &event_handler);
+		esp_event_handler_unregister(MESH_EVENT, 		ESP_EVENT_ANY_ID, &event_handler);
+		esp_event_handler_unregister(SC_EVENT, 			ESP_EVENT_ANY_ID, &event_handler);
+		esp_event_handler_unregister(IP_EVENT, 			ESP_EVENT_ANY_ID, &event_handler);
+		esp_event_handler_unregister(WIFI_PROV_EVENT, 	ESP_EVENT_ANY_ID, &event_handler);
+
+		//2. Destory sta/ap netif
+		if(_default_sta)
+			esp_netif_destroy((esp_netif_t *)_default_sta);
+		if(_default_ap)
+			esp_netif_destroy((esp_netif_t *)_default_ap);
+
+		//3. Deinit wifi driver.
+		esp_wifi_deinit();
+#if 0	// Not stable for del loop task.
+		//4.Delete background thread.
+		esp_event_loop_delete_default();
+
+		//5. No use
+		esp_netif_deinit();
+#endif
+		esp_wifi_set_storage(WIFI_STORAGE_FLASH);
+		lowLevelInitDone = false;
+	}
+    log_d("wifiLowLevelDeinit end");
     return true;
 }
 
 
 bool WiFiGenericClass::wifiLowLevelInit(bool persistent, wifi_mode_t m){
-    if(!lowLevelInitDone){
-        tcpipInit();
+	log_d("wifiLowLevelInit begin");
+    if(!lowLevelInitDone) {
+    	//1. Do netif init, no deinit.
+	    static bool initialized = false;
+	    if(!initialized){
+	        nvs_flash_init();
+	        esp_netif_init();
 
+			//1.1. Background thread create.
+			esp_event_loop_create_default();
+
+			//1.2. Start Wi-Fi thread to manage wifi driver.
+			WiFi->start();
+	    }
+	    //2.
+        //3. Create default sta/ap netif by mode.
         switch(m)
         {
             case WIFI_MODE_STA:
@@ -123,14 +145,15 @@ bool WiFiGenericClass::wifiLowLevelInit(bool persistent, wifi_mode_t m){
             default:;
         }
 
+        //4. Init wifi driver by default settings.
         wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
         esp_err_t err = esp_wifi_init(&cfg);
         if(err){
-            log_e("esp_wifi_init %d", err);
+            log_e("esp_wifi_init %d.", err);
             return false;
         }
 
-        ///< Register all WiFi event into current object.
+        //5. Register all WiFi events into current object.
         esp_event_handler_register(WIFI_EVENT, 		ESP_EVENT_ANY_ID, &event_handler, this);
         esp_event_handler_register(MESH_EVENT, 		ESP_EVENT_ANY_ID, &event_handler, this);
         esp_event_handler_register(SC_EVENT, 		ESP_EVENT_ANY_ID, &event_handler, this);
@@ -140,8 +163,12 @@ bool WiFiGenericClass::wifiLowLevelInit(bool persistent, wifi_mode_t m){
         if(!persistent){
             esp_wifi_set_storage(WIFI_STORAGE_RAM);
         }
+
+        initialized = true;
         lowLevelInitDone = true;
+	    _network_event_group->set(WIFI_DNS_IDLE_BIT);
     }
+    log_d("wifiLowLevelInit end");
     return true;
 }
 
@@ -214,7 +241,6 @@ void WiFiGenericClass::persistent(bool persistent)
     _persistent = persistent;
 }
 
-
 /**
  * enable WiFi long range mode
  * @param enable
@@ -223,7 +249,6 @@ void WiFiGenericClass::enableLongRange(bool enable)
 {
     _long_range = enable;
 }
-
 
 /**
  * set new mode
@@ -235,6 +260,7 @@ bool WiFiGenericClass::mode(wifi_mode_t m)
     if(cm == m) {
         return true;
     }
+
     if(!cm && m){
         if(!wifiLowLevelInit(_persistent, m)){
             return false;
@@ -265,9 +291,6 @@ bool WiFiGenericClass::mode(wifi_mode_t m)
             }
         }
     }
-    if(!espWiFiStart()){
-        return false;
-    }
     return true;
 }
 
@@ -290,8 +313,8 @@ wifi_mode_t WiFiGenericClass::getMode()
 
 /**
  * control STA mode
- * @param enable bool
- * @return ok
+ * @param enable bool enable STA or Deinit STA.
+ * @return OK
  */
 bool WiFiGenericClass::enableSTA(bool enable)
 {

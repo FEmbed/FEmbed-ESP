@@ -37,6 +37,7 @@
 #include "Service.h"
 
 class WiFiClass : 
+	public FEmbed::OSTask,
     public WiFiGenericClass,
     public WiFiSTAClass,
     public WiFiScanClass,
@@ -46,7 +47,8 @@ class WiFiClass :
 private:
     bool prov_enable;
 public:
-    WiFiClass()
+    WiFiClass():
+    	FEmbed::OSTask("Wi-Fi")
     {
         prov_enable = false;
     }
@@ -68,11 +70,13 @@ public:
     using WiFiScanClass::BSSID;
     using WiFiScanClass::BSSIDstr;
     using WiFiScanClass::channel;
+
 public:  
     void printDiag(Print& dest);
 
     void enableProv(bool status);
     bool isProvEnabled();
+    virtual void loop();
 
     friend WiFiGenericClass;
     friend WiFiSTAClass;

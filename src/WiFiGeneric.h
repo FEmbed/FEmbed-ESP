@@ -109,8 +109,6 @@ class WiFiGenericClass
   private:
     bool wifiLowLevelInit(bool persistent, wifi_mode_t m);
     bool wifiLowLevelDeinit();
-    void tcpipInit();
-    bool _start_network_event_task();
     bool espWiFiStart();
     bool espWiFiStop();
 
