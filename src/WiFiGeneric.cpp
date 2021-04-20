@@ -4,6 +4,8 @@
  Copyright (c) 2014 Ivan Grokhotkov. All rights reserved.
  This file is part of the esp8266 core for Arduino environment.
 
+ Port/Rewrite for FEmbed by Gene Kong, April 2021
+
  This library is free software; you can redistribute it and/or
  modify it under the terms of the GNU Lesser General Public
  License as published by the Free Software Foundation; either
@@ -41,27 +43,25 @@ extern "C" {
 #include "lwip/err.h"
 #include "lwip/dns.h"
 #include "esp_ipc.h"
+#include "esp_smartconfig.h"
+#include "esp_mesh.h"
+#include "nvs_flash.h"
 
 } //extern "C"
 
-static esp_err_t _network_event_cb(void *arg, system_event_t *event) { 
-    system_prov_event_t *sys_prov_data = (system_prov_event_t *)malloc(sizeof(system_prov_event_t));
-    if(sys_prov_data == NULL) {
-        return ESP_FAIL;
-    }
-    sys_prov_data->sys_event = event;
-    sys_prov_data->prov_event = NULL;
-    if (arg != NULL && ((WiFiGenericClass *)arg)->postToSysQueue(sys_prov_data) != ESP_OK){
-        free(sys_prov_data);
-        return ESP_FAIL;
-    }
-    return ESP_OK;
-}
+#ifdef  LOG_TAG
+    #undef  LOG_TAG
+#endif
+#define LOG_TAG                             "WiFiGeneric"
 
-static bool wifiLowLevelDeinit(){
-    //deinit not working yet!
-    //esp_wifi_deinit();
-    return true;
+static void event_handler(void* event_handler_arg,
+                                esp_event_base_t event_base,
+                                int32_t event_id,
+                                void* event_data) {
+	if (event_handler_arg != NULL)
+	{
+		((WiFiClass *)event_handler_arg)->_eventCallback(event_base, event_id, event_data);
+	}
 }
 
 static bool _esp_wifi_started = false;
@@ -69,28 +69,10 @@ static bool _esp_wifi_started = false;
 // ------------------------------------------------- Generic WiFi function -----------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------
 
-typedef struct WiFiEventCbList {
-    static wifi_event_id_t current_id;
-    wifi_event_id_t id;
-    WiFiEventCb cb;
-    WiFiEventFuncCb fcb;
-    WiFiEventSysCb scb;
-    WiFiProvEventCb provcb;
-    system_event_id_t event;
-
-    WiFiEventCbList() : id(current_id++), cb(NULL), fcb(NULL), scb(NULL), provcb(NULL), event(SYSTEM_EVENT_WIFI_READY) {}
-} WiFiEventCbList_t;
-wifi_event_id_t WiFiEventCbList::current_id = 1;
-
-
-// arduino dont like std::vectors move static here
-static std::vector<WiFiEventCbList_t> cbEventList;
-
 WiFiGenericClass::WiFiGenericClass()
     : FEmbed::OSTask("Wi-Fi",
                      4096,
                      configMAX_PRIORITIES - 1)
-    , _network_event_queue(new FEmbed::OSMessage<system_prov_event_t *, 32>())
     , _network_event_group(new FEmbed::OSSignal())
     , lowLevelInitDone(false)
 {
@@ -104,32 +86,14 @@ WiFiGenericClass::~WiFiGenericClass()
 }
 
 void WiFiGenericClass::loop(){
-    system_prov_event_t *data;
     for (;;) {
-        if(_network_event_queue->tryGet(&data, portMAX_DELAY)){
-            if(data->prov_event != NULL){
-                WiFiGenericClass::_eventCallback(this, data->sys_event, data->prov_event);
-                free(data->sys_event);
-                free(data->prov_event);
-            } else {
-                WiFiGenericClass::_eventCallback(this, data->sys_event, NULL);
-            }
-            free(data);
-        }        
+    	delay(1000);
     }
-}
-
-esp_err_t WiFiGenericClass::postToSysQueue(system_prov_event_t *data)
-{
-    if (!_network_event_queue->tryPut(data, portMAX_DELAY)) {
-        log_w("Network Event Queue Send Failed!");
-            return ESP_FAIL;
-    }
-    return ESP_OK;
 }
 
 bool WiFiGenericClass::_start_network_event_task(){
     _network_event_group->set(WIFI_DNS_IDLE_BIT);
+    nvs_flash_init();
     this->start();
     esp_event_loop_create_default();
     return true;
@@ -141,12 +105,14 @@ void WiFiGenericClass::tcpipInit(){
         initialized = true;        
         esp_netif_init();
     }
-    else
-    {
-        esp_netif_deinit();
-        esp_netif_init();
-    }
 }
+
+bool WiFiGenericClass::wifiLowLevelDeinit() {
+    //deinit not working yet!
+    // esp_netif_deinit();
+    return true;
+}
+
 
 bool WiFiGenericClass::wifiLowLevelInit(bool persistent, wifi_mode_t m){
     if(!lowLevelInitDone){
@@ -171,6 +137,14 @@ bool WiFiGenericClass::wifiLowLevelInit(bool persistent, wifi_mode_t m){
             log_e("esp_wifi_init %d", err);
             return false;
         }
+
+        ///< Register all WiFi event into current object.
+        esp_event_handler_register(WIFI_EVENT, 		ESP_EVENT_ANY_ID, &event_handler, this);
+        esp_event_handler_register(MESH_EVENT, 		ESP_EVENT_ANY_ID, &event_handler, this);
+        esp_event_handler_register(SC_EVENT, 		ESP_EVENT_ANY_ID, &event_handler, this);
+        esp_event_handler_register(IP_EVENT, 		ESP_EVENT_ANY_ID, &event_handler, this);
+        esp_event_handler_register(WIFI_PROV_EVENT, ESP_EVENT_ANY_ID, &event_handler, this);
+
         if(!persistent){
             esp_wifi_set_storage(WIFI_STORAGE_RAM);
         }
@@ -189,9 +163,6 @@ bool WiFiGenericClass::espWiFiStart() {
         return false;
     }
     _esp_wifi_started = true;
-    system_event_t event;
-    event.event_id = SYSTEM_EVENT_WIFI_READY;
-    _eventCallback(nullptr, &event, NULL);
     return true;
 }
 
@@ -224,246 +195,6 @@ int WiFiGenericClass::getStatusBits(){
 
 int WiFiGenericClass::waitStatusBits(int bits, uint32_t timeout_ms){
     return _network_event_group->wait(bits, timeout_ms, pdFALSE, pdTRUE) & bits;
-}
-
-/**
- * set callback function
- * @param cbEvent WiFiEventCb
- * @param event optional filter (WIFI_EVENT_MAX is all events)
- */
-wifi_event_id_t WiFiGenericClass::onEvent(WiFiProvEventCb cbEvent, system_event_id_t event)
-{
-    if(!cbEvent){
-        return 0;
-    }
-    WiFiEventCbList_t newEventHandler;
-    newEventHandler.cb = NULL;
-    newEventHandler.fcb = NULL;
-    newEventHandler.scb = NULL;
-    newEventHandler.provcb = cbEvent;
-    newEventHandler.event = event;
-    cbEventList.push_back(newEventHandler);
-    return newEventHandler.id;
-}
-wifi_event_id_t WiFiGenericClass::onEvent(WiFiEventCb cbEvent, system_event_id_t event)
-{
-    if(!cbEvent) {
-        return 0;
-    }
-    WiFiEventCbList_t newEventHandler;
-    newEventHandler.cb = cbEvent;
-    newEventHandler.fcb = NULL;
-    newEventHandler.scb = NULL;
-    newEventHandler.provcb = NULL;
-    newEventHandler.event = event;
-    cbEventList.push_back(newEventHandler);
-    return newEventHandler.id;
-}
-
-wifi_event_id_t WiFiGenericClass::onEvent(WiFiEventFuncCb cbEvent, system_event_id_t event)
-{
-    if(!cbEvent) {
-        return 0;
-    }
-    WiFiEventCbList_t newEventHandler;
-    newEventHandler.cb = NULL;
-    newEventHandler.fcb = cbEvent;
-    newEventHandler.scb = NULL;
-    newEventHandler.provcb = NULL;
-    newEventHandler.event = event;
-    cbEventList.push_back(newEventHandler);
-    return newEventHandler.id;
-}
-
-wifi_event_id_t WiFiGenericClass::onEvent(WiFiEventSysCb cbEvent, system_event_id_t event)
-{
-    if(!cbEvent) {
-        return 0;
-    }
-    WiFiEventCbList_t newEventHandler;
-    newEventHandler.cb = NULL;
-    newEventHandler.fcb = NULL;
-    newEventHandler.scb = cbEvent;
-    newEventHandler.provcb = NULL;
-    newEventHandler.event = event;
-    cbEventList.push_back(newEventHandler);
-    return newEventHandler.id;
-}
-
-/**
- * removes a callback form event handler
- * @param cbEvent WiFiEventCb
- * @param event optional filter (WIFI_EVENT_MAX is all events)
- */
-void WiFiGenericClass::removeEvent(WiFiEventCb cbEvent, system_event_id_t event)
-{
-    if(!cbEvent) {
-        return;
-    }
-
-    for(uint32_t i = 0; i < cbEventList.size(); i++) {
-        WiFiEventCbList_t entry = cbEventList[i];
-        if(entry.cb == cbEvent && entry.event == event) {
-            cbEventList.erase(cbEventList.begin() + i);
-        }
-    }
-}
-
-void WiFiGenericClass::removeEvent(WiFiEventSysCb cbEvent, system_event_id_t event)
-{
-    if(!cbEvent) {
-        return;
-    }
-
-    for(uint32_t i = 0; i < cbEventList.size(); i++) {
-        WiFiEventCbList_t entry = cbEventList[i];
-        if(entry.scb == cbEvent && entry.event == event) {
-            cbEventList.erase(cbEventList.begin() + i);
-        }
-    }
-}
-
-void WiFiGenericClass::removeEvent(wifi_event_id_t id)
-{
-    for(uint32_t i = 0; i < cbEventList.size(); i++) {
-        WiFiEventCbList_t entry = cbEventList[i];
-        if(entry.id == id) {
-            cbEventList.erase(cbEventList.begin() + i);
-        }
-    }
-}
-
-/**
- * callback for WiFi events
- * @param arg
- */
-#if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
-const char * system_event_names[] = { "WIFI_READY", "SCAN_DONE", "STA_START", "STA_STOP", "STA_CONNECTED", "STA_DISCONNECTED", "STA_AUTHMODE_CHANGE", "STA_GOT_IP", "STA_LOST_IP", "STA_WPS_ER_SUCCESS", "STA_WPS_ER_FAILED", "STA_WPS_ER_TIMEOUT", "STA_WPS_ER_PIN", "STA_WPS_ER_PBC_OVERLAP", "AP_START", "AP_STOP", "AP_STACONNECTED", "AP_STADISCONNECTED", "AP_STAIPASSIGNED", "AP_PROBEREQRECVED", "GOT_IP6", "ETH_START", "ETH_STOP", "ETH_CONNECTED", "ETH_DISCONNECTED", "ETH_GOT_IP", "MAX"};
-#endif
-#if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_WARN
-const char * system_event_reasons[] = { "UNSPECIFIED", "AUTH_EXPIRE", "AUTH_LEAVE", "ASSOC_EXPIRE", "ASSOC_TOOMANY", "NOT_AUTHED", "NOT_ASSOCED", "ASSOC_LEAVE", "ASSOC_NOT_AUTHED", "DISASSOC_PWRCAP_BAD", "DISASSOC_SUPCHAN_BAD", "UNSPECIFIED", "IE_INVALID", "MIC_FAILURE", "4WAY_HANDSHAKE_TIMEOUT", "GROUP_KEY_UPDATE_TIMEOUT", "IE_IN_4WAY_DIFFERS", "GROUP_CIPHER_INVALID", "PAIRWISE_CIPHER_INVALID", "AKMP_INVALID", "UNSUPP_RSN_IE_VERSION", "INVALID_RSN_IE_CAP", "802_1X_AUTH_FAILED", "CIPHER_SUITE_REJECTED", "BEACON_TIMEOUT", "NO_AP_FOUND", "AUTH_FAIL", "ASSOC_FAIL", "HANDSHAKE_TIMEOUT", "CONNECTION_FAIL" };
-#define reason2str(r) ((r>176)?system_event_reasons[r-176]:system_event_reasons[r-1])
-#endif
-esp_err_t WiFiGenericClass::_eventCallback(void *arg, system_event_t *event, wifi_prov_event_t *prov_event)
-{
-    if(WiFi->isProvEnabled()) {
-        wifi_prov_mgr_event_handler(arg,event);        
-    }
-    if(event->event_id < 26) {
-        log_d("Event: %d - %s", event->event_id, system_event_names[event->event_id]);
-    }
-    if(event->event_id == SYSTEM_EVENT_SCAN_DONE) {
-        WiFiScanClass::_scanDone();
-
-    } else if(event->event_id == SYSTEM_EVENT_STA_START) {
-        WiFiSTAClass::_setStatus(WL_DISCONNECTED);
-        setStatusBits(STA_STARTED_BIT);
-        tcpip_adapter_set_hostname(TCPIP_ADAPTER_IF_STA, WiFiSTAClass::_hostname.c_str());
-    } else if(event->event_id == SYSTEM_EVENT_STA_STOP) {
-        WiFiSTAClass::_setStatus(WL_NO_SHIELD);
-        clearStatusBits(STA_STARTED_BIT | STA_CONNECTED_BIT | STA_HAS_IP_BIT | STA_HAS_IP6_BIT);
-    } else if(event->event_id == SYSTEM_EVENT_STA_CONNECTED) {
-        WiFiSTAClass::_setStatus(WL_IDLE_STATUS);
-        setStatusBits(STA_CONNECTED_BIT);
-    } else if(event->event_id == SYSTEM_EVENT_STA_DISCONNECTED) {
-        uint8_t reason = event->event_info.disconnected.reason;
-        log_w("Reason: %u - %s", reason, reason2str(reason));
-        if(reason == WIFI_REASON_NO_AP_FOUND) {
-            WiFiSTAClass::_setStatus(WL_NO_SSID_AVAIL);
-        } else if(reason == WIFI_REASON_AUTH_FAIL || reason == WIFI_REASON_ASSOC_FAIL) {
-            WiFiSTAClass::_setStatus(WL_CONNECT_FAILED);
-        } else if(reason == WIFI_REASON_BEACON_TIMEOUT || reason == WIFI_REASON_HANDSHAKE_TIMEOUT) {
-            WiFiSTAClass::_setStatus(WL_CONNECTION_LOST);
-        } else if(reason == WIFI_REASON_AUTH_EXPIRE) {
-
-        } else {
-            WiFiSTAClass::_setStatus(WL_DISCONNECTED);
-        }
-        clearStatusBits(STA_CONNECTED_BIT | STA_HAS_IP_BIT | STA_HAS_IP6_BIT);
-        if(((reason == WIFI_REASON_AUTH_EXPIRE) ||
-            (reason >= WIFI_REASON_BEACON_TIMEOUT && reason != WIFI_REASON_AUTH_FAIL)) &&
-           WiFi->getAutoReconnect())
-        {
-           WiFi->disconnect();
-           WiFi->begin();
-        }
-    } else if(event->event_id == SYSTEM_EVENT_STA_GOT_IP) {
-#if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
-        uint8_t * ip = (uint8_t *)&(event->event_info.got_ip.ip_info.ip.addr);
-        uint8_t * mask = (uint8_t *)&(event->event_info.got_ip.ip_info.netmask.addr);
-        uint8_t * gw = (uint8_t *)&(event->event_info.got_ip.ip_info.gw.addr);
-        log_d("STA IP: %u.%u.%u.%u, MASK: %u.%u.%u.%u, GW: %u.%u.%u.%u",
-            ip[0], ip[1], ip[2], ip[3],
-            mask[0], mask[1], mask[2], mask[3],
-            gw[0], gw[1], gw[2], gw[3]);
-#endif
-        WiFiSTAClass::_setStatus(WL_CONNECTED);
-        setStatusBits(STA_HAS_IP_BIT | STA_CONNECTED_BIT);
-    } else if(event->event_id == SYSTEM_EVENT_STA_LOST_IP) {
-        WiFiSTAClass::_setStatus(WL_IDLE_STATUS);
-        clearStatusBits(STA_HAS_IP_BIT);
-
-    } else if(event->event_id == SYSTEM_EVENT_AP_START) {
-        setStatusBits(AP_STARTED_BIT);
-    } else if(event->event_id == SYSTEM_EVENT_AP_STOP) {
-        clearStatusBits(AP_STARTED_BIT | AP_HAS_CLIENT_BIT);
-    } else if(event->event_id == SYSTEM_EVENT_AP_STACONNECTED) {
-        setStatusBits(AP_HAS_CLIENT_BIT);
-    } else if(event->event_id == SYSTEM_EVENT_AP_STADISCONNECTED) {
-        wifi_sta_list_t clients;
-        if(esp_wifi_ap_get_sta_list(&clients) != ESP_OK || !clients.num){
-            clearStatusBits(AP_HAS_CLIENT_BIT);
-        }
-
-    } else if(event->event_id == SYSTEM_EVENT_ETH_START) {
-        setStatusBits(ETH_STARTED_BIT);
-    } else if(event->event_id == SYSTEM_EVENT_ETH_STOP) {
-        clearStatusBits(ETH_STARTED_BIT | ETH_CONNECTED_BIT | ETH_HAS_IP_BIT | ETH_HAS_IP6_BIT);
-    } else if(event->event_id == SYSTEM_EVENT_ETH_CONNECTED) {
-        setStatusBits(ETH_CONNECTED_BIT);
-    } else if(event->event_id == SYSTEM_EVENT_ETH_DISCONNECTED) {
-        clearStatusBits(ETH_CONNECTED_BIT | ETH_HAS_IP_BIT | ETH_HAS_IP6_BIT);
-    } else if(event->event_id == SYSTEM_EVENT_ETH_GOT_IP) {
-#if ARDUHAL_LOG_LEVEL >= ARDUHAL_LOG_LEVEL_DEBUG
-        uint8_t * ip = (uint8_t *)&(event->event_info.got_ip.ip_info.ip.addr);
-        uint8_t * mask = (uint8_t *)&(event->event_info.got_ip.ip_info.netmask.addr);
-        uint8_t * gw = (uint8_t *)&(event->event_info.got_ip.ip_info.gw.addr);
-        log_d("ETH IP: %u.%u.%u.%u, MASK: %u.%u.%u.%u, GW: %u.%u.%u.%u",
-            ip[0], ip[1], ip[2], ip[3],
-            mask[0], mask[1], mask[2], mask[3],
-            gw[0], gw[1], gw[2], gw[3]);
-#endif
-        setStatusBits(ETH_CONNECTED_BIT | ETH_HAS_IP_BIT);
-
-    } else if(event->event_id == SYSTEM_EVENT_GOT_IP6) {
-        if(event->event_info.got_ip6.if_index == TCPIP_ADAPTER_IF_AP){
-            setStatusBits(AP_HAS_IP6_BIT);
-        } else if(event->event_info.got_ip6.if_index == TCPIP_ADAPTER_IF_STA){
-            setStatusBits(STA_CONNECTED_BIT | STA_HAS_IP6_BIT);
-        } else if(event->event_info.got_ip6.if_index == TCPIP_ADAPTER_IF_ETH){
-            setStatusBits(ETH_CONNECTED_BIT | ETH_HAS_IP6_BIT);
-        }
-    }
- 
-    for(uint32_t i = 0; i < cbEventList.size(); i++) {
-        WiFiEventCbList_t entry = cbEventList[i];
-        if(entry.cb || entry.fcb || entry.scb) {
-            if(entry.event == (system_event_id_t) event->event_id || entry.event == SYSTEM_EVENT_MAX) {
-                if(entry.cb) {
-                    entry.cb((system_event_id_t) event->event_id);
-                } else if(entry.fcb) {
-                    entry.fcb((system_event_id_t) event->event_id, (system_event_info_t) event->event_info);
-                } else {
-                    entry.scb(event);
-                }
-            }
-        }
-
-        if(entry.provcb) {
-            entry.provcb(event,prov_event);
-        }
-    }
-    return ESP_OK;
 }
 
 /**
@@ -761,4 +492,14 @@ uint8_t WiFiGenericClass::calculateSubnetCIDR(IPAddress subnetMask) {
 	}
 
 	return CIDR;
+}
+
+void WiFiGenericClass::_meshCallback(uint32_t event_id, void* event_data)
+{
+
+}
+
+void WiFiGenericClass::_provCallback(uint32_t event_id, void* event_data)
+{
+
 }

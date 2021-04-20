@@ -52,9 +52,9 @@ public:
     }
     ~WiFiClass()
     {
-
     }
 
+    esp_err_t _eventCallback(esp_event_base_t event_base, int32_t event_id, void* event_data);
     using WiFiGenericClass::channel;
 
     using WiFiSTAClass::SSID;
@@ -70,12 +70,12 @@ public:
     using WiFiScanClass::channel;
 public:  
     void printDiag(Print& dest);
-    friend class WiFiClient;
-    friend class WiFiServer;
-    friend class WiFiUDP;
 
     void enableProv(bool status);
     bool isProvEnabled();
+private:
+    void _wifiCallback(uint32_t event_id, void* event_data);
+    void _ipCallback(uint32_t event_id, void* event_data);
 };
 
 #define WiFi        WiFiClass::get()

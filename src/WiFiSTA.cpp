@@ -3,6 +3,7 @@
 
  Copyright (c) 2014 Ivan Grokhotkov. All rights reserved.
  This file is part of the esp8266 core for Arduino environment.
+ Port/Rewrite for FEmbed by Gene Kong, April 2021
 
  This library is free software; you can redistribute it and/or
  modify it under the terms of the GNU Lesser General Public
@@ -35,20 +36,23 @@ extern "C" {
 #include <string.h>
 #include <esp_err.h>
 #include <esp_wifi.h>
-#include <esp_event_loop.h>
+#include <esp_event.h>
 #include <lwip/ip_addr.h>
 #include "lwip/err.h"
 #include "lwip/dns.h"
 #include <esp_smartconfig.h>
-#include <tcpip_adapter.h>
 }
+
+#ifdef  LOG_TAG
+    #undef  LOG_TAG
+#endif
+#define LOG_TAG                             "WiFiSta"
 
 // -----------------------------------------------------------------------------------------------------------------------
 // ---------------------------------------------------- Private functions ------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------
 
 static bool sta_config_equal(const wifi_config_t& lhs, const wifi_config_t& rhs);
-
 
 /**
  * compare two STA configurations
@@ -68,25 +72,26 @@ static bool sta_config_equal(const wifi_config_t& lhs, const wifi_config_t& rhs)
 // ---------------------------------------------------- STA function -----------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------------
 
-bool WiFiSTAClass::_autoReconnect = true;
-bool WiFiSTAClass::_useStaticIp = false;
-String WiFiSTAClass::_hostname = "esp32-fembed";
+WiFiSTAClass::WiFiSTAClass()
+	: _lock(new FEmbed::OSMutex())
+{
+	_useStaticIp = false;
+	_autoReconnect = true;
+	_hostname = "esp32-fembed";
+	_smartConfigStarted = false;
+	_smartConfigDone = false;
+	_status = WL_NO_SHIELD;
+}
 
-static wl_status_t _sta_status = WL_NO_SHIELD;
-static EventGroupHandle_t _sta_status_group = NULL;
+WiFiSTAClass::~WiFiSTAClass()
+{
+
+}
 
 void WiFiSTAClass::_setStatus(wl_status_t status)
 {
-    if(!_sta_status_group){
-        _sta_status_group = xEventGroupCreate();
-        if(!_sta_status_group){
-            log_e("STA Status Group Create Failed!");
-            _sta_status = status;
-            return;
-        }
-    }
-    xEventGroupClearBits(_sta_status_group, 0x00FFFFFF);
-    xEventGroupSetBits(_sta_status_group, status);
+	FEmbed::OSMutexLocker locker(_lock);
+	_status = status;
 }
 
 /**
@@ -96,10 +101,8 @@ void WiFiSTAClass::_setStatus(wl_status_t status)
  */
 wl_status_t WiFiSTAClass::status()
 {
-    if(!_sta_status_group){
-        return _sta_status;
-    }
-    return (wl_status_t)xEventGroupClearBits(_sta_status_group, 0);
+	FEmbed::OSMutexLocker locker(_lock);
+	return _status;
 }
 
 /**
@@ -670,11 +673,6 @@ IPv6Address WiFiSTAClass::localIPv6()
     }
     return IPv6Address(addr.addr);
 }
-
-
-bool WiFiSTAClass::_smartConfigStarted = false;
-bool WiFiSTAClass::_smartConfigDone = false;
-
 
 bool WiFiSTAClass::beginSmartConfig() {
     if (_smartConfigStarted) {

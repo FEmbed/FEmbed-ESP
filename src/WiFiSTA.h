@@ -4,6 +4,7 @@
  Copyright (c) 2011-2014 Arduino.  All right reserved.
  Modified by Ivan Grokhotkov, December 2014
  Reworked by Markus Sattler, December 2015
+ Port/Rewrite for FEmbed by Gene Kong, April 2021
 
  This library is free software; you can redistribute it and/or
  modify it under the terms of the GNU Lesser General Public
@@ -35,6 +36,8 @@ class WiFiSTAClass
     // ----------------------------------------------------------------------------------------------
 
 public:
+	WiFiSTAClass();
+	~WiFiSTAClass();
 
     wl_status_t begin(const char* ssid, const char *passphrase = NULL, int32_t channel = 0, const uint8_t* bssid = NULL, bool connect = true);
     wl_status_t begin(char* ssid, char *passphrase = NULL, int32_t channel = 0, const uint8_t* bssid = NULL, bool connect = true);
@@ -76,7 +79,7 @@ public:
     bool setHostname(const char * hostname);
 
     // STA WiFi info
-    static wl_status_t status();
+    wl_status_t status();
     String SSID() const;
     String psk() const;
 
@@ -85,11 +88,13 @@ public:
 
     int8_t RSSI();
 
-    static void _setStatus(wl_status_t status);
-    static String _hostname;
+    void _setStatus(wl_status_t status);
+    String _hostname;
 protected:
-    static bool _useStaticIp;
-    static bool _autoReconnect;
+    bool _useStaticIp;
+    bool _autoReconnect;
+    wl_status_t _status;
+    std::shared_ptr<FEmbed::OSMutex> _lock;
 
 public: 
     bool beginSmartConfig();
@@ -97,9 +102,9 @@ public:
     bool smartConfigDone();
 
 protected:
-    static bool _smartConfigStarted;
-    static bool _smartConfigDone;
-    static void _smartConfigCallback(uint32_t event_id, void* event_data);
+    bool _smartConfigStarted;
+    bool _smartConfigDone;
+    void _smartConfigCallback(uint32_t event_id, void* event_data);
 
 };
 

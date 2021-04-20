@@ -33,39 +33,21 @@
 #include <osTask.h>
 #include <osMessage.h>
 #include <osSignal.h>
-
-typedef struct
-{
-     wifi_prov_cb_event_t event;
-     void *event_data;
-}wifi_prov_event_t;
-
-typedef struct
-{
-    wifi_prov_event_t *prov_event;
-    system_event_t *sys_event;
-}system_prov_event_t;
-
-typedef void (*WiFiEventCb)(system_event_id_t event);
-typedef std::function<void(system_event_id_t event, system_event_info_t info)> WiFiEventFuncCb;
-typedef void (*WiFiEventSysCb)(system_event_t *event);
-typedef void (*WiFiProvEventCb)(system_event_t *sys_event, wifi_prov_event_t *prov_event);
-
-typedef size_t wifi_event_id_t;
+#include <osMutex.h>
 
 typedef enum {
-    WIFI_POWER_19_5dBm = 78,// 19.5dBm
-    WIFI_POWER_19dBm = 76,// 19dBm
-    WIFI_POWER_18_5dBm = 74,// 18.5dBm
-    WIFI_POWER_17dBm = 68,// 17dBm
-    WIFI_POWER_15dBm = 60,// 15dBm
-    WIFI_POWER_13dBm = 52,// 13dBm
-    WIFI_POWER_11dBm = 44,// 11dBm
-    WIFI_POWER_8_5dBm = 34,// 8.5dBm
-    WIFI_POWER_7dBm = 28,// 7dBm
-    WIFI_POWER_5dBm = 20,// 5dBm
-    WIFI_POWER_2dBm = 8,// 2dBm
-    WIFI_POWER_MINUS_1dBm = -4// -1dBm
+    WIFI_POWER_19_5dBm = 78,    // 19.5dBm
+    WIFI_POWER_19dBm = 76,      // 19dBm
+    WIFI_POWER_18_5dBm = 74,    // 18.5dBm
+    WIFI_POWER_17dBm = 68,      // 17dBm
+    WIFI_POWER_15dBm = 60,      // 15dBm
+    WIFI_POWER_13dBm = 52,      // 13dBm
+    WIFI_POWER_11dBm = 44,      // 11dBm
+    WIFI_POWER_8_5dBm = 34,     // 8.5dBm
+    WIFI_POWER_7dBm = 28,       // 7dBm
+    WIFI_POWER_5dBm = 20,       // 5dBm
+    WIFI_POWER_2dBm = 8,        // 2dBm
+    WIFI_POWER_MINUS_1dBm = -4  // -1dBm
 } wifi_power_t;
 
 static const int AP_STARTED_BIT    = BIT0;
@@ -90,14 +72,6 @@ class WiFiGenericClass :
   public:
     WiFiGenericClass();
     ~WiFiGenericClass();
-    
-    wifi_event_id_t onEvent(WiFiEventCb cbEvent, system_event_id_t event = SYSTEM_EVENT_MAX);
-    wifi_event_id_t onEvent(WiFiEventFuncCb cbEvent, system_event_id_t event = SYSTEM_EVENT_MAX);
-    wifi_event_id_t onEvent(WiFiEventSysCb cbEvent, system_event_id_t event = SYSTEM_EVENT_MAX);
-    wifi_event_id_t onEvent(WiFiProvEventCb cbEvent, system_event_id_t event = SYSTEM_EVENT_MAX);
-    void removeEvent(WiFiEventCb cbEvent, system_event_id_t event = SYSTEM_EVENT_MAX);
-    void removeEvent(WiFiEventSysCb cbEvent, system_event_id_t event = SYSTEM_EVENT_MAX);
-    void removeEvent(wifi_event_id_t id);
 
     int getStatusBits();
     int waitStatusBits(int bits, uint32_t timeout_ms);
@@ -120,31 +94,30 @@ class WiFiGenericClass :
     bool setTxPower(wifi_power_t power);
     wifi_power_t getTxPower();
 
-    esp_err_t _eventCallback(void *arg, system_event_t *event, wifi_prov_event_t *prov_event);
-
     virtual void loop();
 
     FE_NOTIFY_SIGNAL(14, WifiDNSDone, _network_event_group)
   protected:
     bool _persistent;
     bool _long_range;
-    static wifi_mode_t _forceSleepLastMode;
+    wifi_mode_t _forceSleepLastMode;
 
     int setStatusBits(int bits);
     int clearStatusBits(int bits);
 
+    void _meshCallback(uint32_t event_id, void* event_data);
+    void _provCallback(uint32_t event_id, void* event_data);
   private:
     bool wifiLowLevelInit(bool persistent, wifi_mode_t m);
+    bool wifiLowLevelDeinit();
     void tcpipInit();
     bool _start_network_event_task();
     bool espWiFiStart();
     bool espWiFiStop();
 
-    std::shared_ptr<FEmbed::OSMessage<system_prov_event_t *, 32>> _network_event_queue;
     std::shared_ptr<FEmbed::OSSignal> _network_event_group;
     bool lowLevelInitDone;
   public:
-    esp_err_t postToSysQueue(system_prov_event_t *data);
 
     int hostByName(const char *aHostname, IPAddress &aResult);
 

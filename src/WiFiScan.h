@@ -4,6 +4,7 @@
  Copyright (c) 2011-2014 Arduino.  All right reserved.
  Modified by Ivan Grokhotkov, December 2014
  Reworked by Markus Sattler, December 2015
+ Port/Rewrite for FEmbed by Gene Kong, April 2021
 
  This library is free software; you can redistribute it and/or
  modify it under the terms of the GNU Lesser General Public
@@ -30,7 +31,8 @@ class WiFiScanClass
 {
 
 public:
-
+	WiFiScanClass();
+	~WiFiScanClass();
     int16_t scanNetworks(bool async = false, bool show_hidden = false, bool passive = false, uint32_t max_ms_per_chan = 300, uint8_t channel = 0);
 
     int16_t scanComplete();
@@ -45,20 +47,18 @@ public:
     uint8_t * BSSID(uint8_t networkItem);
     String BSSIDstr(uint8_t networkItem);
     int32_t channel(uint8_t networkItem);
-    static void * getScanInfoByIndex(int i) { return _getScanInfoByIndex(i); }; 
-
-    static void _scanDone();
+    void * getScanInfoByIndex(int i) { return _getScanInfoByIndex(i); };
+    void scanDone();
 protected:
 
-    static bool _scanAsync;
+    bool _scanAsync;
     
-    static uint32_t _scanStarted;
-    static uint32_t _scanTimeout;
-    static uint16_t _scanCount;
-    
-    static void* _scanResult;
+    uint32_t _scanStarted;
+    uint32_t _scanTimeout;
+    uint16_t _scanCount;
 
-    static void * _getScanInfoByIndex(int i);
+    void * _scanResult;
+    void * _getScanInfoByIndex(int i);
 
 };
 

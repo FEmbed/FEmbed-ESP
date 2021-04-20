@@ -3,6 +3,7 @@
 
  Copyright (c) 2014 Ivan Grokhotkov. All rights reserved.
  This file is part of the esp8266 core for Arduino environment.
+ Port/Rewrite for FEmbed by Gene Kong, April 2021
 
  This library is free software; you can redistribute it and/or
  modify it under the terms of the GNU Lesser General Public
@@ -41,12 +42,19 @@ extern "C" {
 #include "lwip/err.h"
 }
 
-bool WiFiScanClass::_scanAsync = false;
-uint32_t WiFiScanClass::_scanStarted = 0;
-uint32_t WiFiScanClass::_scanTimeout = 10000;
-uint16_t WiFiScanClass::_scanCount = 0;
-void* WiFiScanClass::_scanResult = 0;
+WiFiScanClass::WiFiScanClass()
+{
+	_scanAsync = false;
+	_scanStarted = 0;
+	_scanTimeout = 10000;
+	_scanCount = 0;
+	_scanResult = NULL;
+}
 
+WiFiScanClass::~WiFiScanClass()
+{
+
+}
 /**
  * Start scan WiFi networks available
  * @param async         run in async mode
@@ -59,8 +67,8 @@ int16_t WiFiScanClass::scanNetworks(bool async, bool show_hidden, bool passive, 
         return WIFI_SCAN_RUNNING;
     }
 
-    WiFiScanClass::_scanTimeout = max_ms_per_chan * 20;
-    WiFiScanClass::_scanAsync = async;
+    _scanTimeout = max_ms_per_chan * 20;
+    _scanAsync = async;
 
     WiFi->enableSTA(true);
 
@@ -88,11 +96,11 @@ int16_t WiFiScanClass::scanNetworks(bool async, bool show_hidden, bool passive, 
         WiFi->clearStatusBits(WIFI_SCAN_DONE_BIT);
         WiFi->setStatusBits(WIFI_SCANNING_BIT);
 
-        if(WiFiScanClass::_scanAsync) {
+        if(_scanAsync) {
             return WIFI_SCAN_RUNNING;
         }
         if(WiFi->waitStatusBits(WIFI_SCAN_DONE_BIT, 10000)){
-            return (int16_t) WiFiScanClass::_scanCount;
+            return (int16_t) _scanCount;
         }
     }
     return WIFI_SCAN_FAILED;
@@ -105,16 +113,16 @@ int16_t WiFiScanClass::scanNetworks(bool async, bool show_hidden, bool passive, 
  * @param result  void *arg
  * @param status STATUS
  */
-void WiFiScanClass::_scanDone()
+void WiFiScanClass::scanDone()
 {
-    esp_wifi_scan_get_ap_num(&(WiFiScanClass::_scanCount));
-    if(WiFiScanClass::_scanCount) {
-        WiFiScanClass::_scanResult = new wifi_ap_record_t[WiFiScanClass::_scanCount];
-        if(!WiFiScanClass::_scanResult || esp_wifi_scan_get_ap_records(&(WiFiScanClass::_scanCount), (wifi_ap_record_t*)_scanResult) != ESP_OK) {
-            WiFiScanClass::_scanCount = 0;
+    esp_wifi_scan_get_ap_num(&(_scanCount));
+    if(_scanCount) {
+        _scanResult = new wifi_ap_record_t[_scanCount];
+        if(!_scanResult || esp_wifi_scan_get_ap_records(&(_scanCount), (wifi_ap_record_t*)_scanResult) != ESP_OK) {
+            _scanCount = 0;
         }
     }
-    WiFiScanClass::_scanStarted=0; //Reset after a scan is completed for normal behavior
+    _scanStarted=0; //Reset after a scan is completed for normal behavior
     WiFi->setStatusBits(WIFI_SCAN_DONE_BIT);
     WiFi->clearStatusBits(WIFI_SCANNING_BIT);
 }
@@ -126,10 +134,10 @@ void WiFiScanClass::_scanDone()
  */
 void * WiFiScanClass::_getScanInfoByIndex(int i)
 {
-    if(!WiFiScanClass::_scanResult || (size_t) i >= WiFiScanClass::_scanCount) {
+    if(!_scanResult || (size_t) i >= _scanCount) {
         return 0;
     }
-    return reinterpret_cast<wifi_ap_record_t*>(WiFiScanClass::_scanResult) + i;
+    return reinterpret_cast<wifi_ap_record_t*>(_scanResult) + i;
 }
 
 /**
@@ -140,13 +148,13 @@ void * WiFiScanClass::_getScanInfoByIndex(int i)
  */
 int16_t WiFiScanClass::scanComplete()
 {
-    if (WiFiScanClass::_scanStarted && (millis()-WiFiScanClass::_scanStarted) > WiFiScanClass::_scanTimeout) { //Check is scan was started and if the delay expired, return WIFI_SCAN_FAILED in this case 
+    if (_scanStarted && (millis()-_scanStarted) > _scanTimeout) { //Check is scan was started and if the delay expired, return WIFI_SCAN_FAILED in this case
     	WiFi->clearStatusBits(WIFI_SCANNING_BIT);
 	return WIFI_SCAN_FAILED;
     }
 
     if(WiFi->getStatusBits() & WIFI_SCAN_DONE_BIT) {
-        return WiFiScanClass::_scanCount;
+        return _scanCount;
     }
 
     if(WiFi->getStatusBits() & WIFI_SCANNING_BIT) {
@@ -162,10 +170,10 @@ int16_t WiFiScanClass::scanComplete()
 void WiFiScanClass::scanDelete()
 {
     WiFi->clearStatusBits(WIFI_SCAN_DONE_BIT);
-    if(WiFiScanClass::_scanResult) {
-        delete[] reinterpret_cast<wifi_ap_record_t*>(WiFiScanClass::_scanResult);
-        WiFiScanClass::_scanResult = 0;
-        WiFiScanClass::_scanCount = 0;
+    if(_scanResult) {
+        delete[] reinterpret_cast<wifi_ap_record_t*>(_scanResult);
+        _scanResult = 0;
+        _scanCount = 0;
     }
 }
 

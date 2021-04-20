@@ -4,6 +4,7 @@
  Copyright (c) 2011-2014 Arduino.  All right reserved.
  Modified by Ivan Grokhotkov, December 2014
  Reworked by Markus Sattler, December 2015
+ Port/Rewrite for FEmbed by Gene Kong, April 2021
 
  This library is free software; you can redistribute it and/or
  modify it under the terms of the GNU Lesser General Public
