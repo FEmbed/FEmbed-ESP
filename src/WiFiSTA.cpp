@@ -73,14 +73,14 @@ static bool sta_config_equal(const wifi_config_t& lhs, const wifi_config_t& rhs)
 // -----------------------------------------------------------------------------------------------------------------------
 
 WiFiSTAClass::WiFiSTAClass()
-	: _lock(new FEmbed::OSMutex())
+    : _lock(new FEmbed::OSMutex())
 {
-	_useStaticIp = false;
-	_autoReconnect = true;
-	_hostname = "esp32-fembed";
-	_smartConfigStarted = false;
-	_smartConfigDone = false;
-	_status = WL_NO_SHIELD;
+    _useStaticIp = false;
+    _autoReconnect = true;
+    _hostname = "esp32-fembed";
+    _smartConfigStarted = false;
+    _smartConfigDone = false;
+    _status = WL_NO_SHIELD;
 }
 
 WiFiSTAClass::~WiFiSTAClass()
@@ -89,8 +89,8 @@ WiFiSTAClass::~WiFiSTAClass()
 
 void WiFiSTAClass::setStatus(wl_status_t status)
 {
-	FEmbed::OSMutexLocker locker(_lock);
-	_status = status;
+    FEmbed::OSMutexLocker locker(_lock);
+    _status = status;
 }
 
 /**
@@ -100,8 +100,8 @@ void WiFiSTAClass::setStatus(wl_status_t status)
  */
 wl_status_t WiFiSTAClass::status()
 {
-	FEmbed::OSMutexLocker locker(_lock);
-	return _status;
+    FEmbed::OSMutexLocker locker(_lock);
+    return _status;
 }
 
 /**
@@ -174,13 +174,13 @@ wl_status_t WiFiSTAClass::begin(const char* ssid, const char *passphrase, int32_
 
     esp_netif_t *_sta = (esp_netif_t *)WiFi->_default_sta;
     if(!_useStaticIp) {
-        if(	(_sta == NULL) ||
-        	(esp_netif_dhcpc_start(_sta) == ESP_ERR_TCPIP_ADAPTER_DHCPC_START_FAILED)) {
+        if(    (_sta == NULL) ||
+            (esp_netif_dhcpc_start(_sta) == ESP_ERR_TCPIP_ADAPTER_DHCPC_START_FAILED)) {
             log_e("dhcp client start failed!");
             return WL_CONNECT_FAILED;
         }
     } else {
-    	if(_sta != NULL) esp_netif_dhcpc_stop(_sta);
+        if(_sta != NULL) esp_netif_dhcpc_stop(_sta);
     }
 
     return status();
@@ -214,13 +214,13 @@ wl_status_t WiFiSTAClass::begin()
 
     esp_netif_t *_sta = (esp_netif_t *)WiFi->_default_sta;
     if(!_useStaticIp) {
-        if(	(_sta == NULL) ||
-        	(esp_netif_dhcpc_start(_sta) == ESP_ERR_TCPIP_ADAPTER_DHCPC_START_FAILED)) {
+        if(    (_sta == NULL) ||
+            (esp_netif_dhcpc_start(_sta) == ESP_ERR_TCPIP_ADAPTER_DHCPC_START_FAILED)) {
             log_e("dhcp client start failed!");
             return WL_CONNECT_FAILED;
         }
     } else {
-    	if(_sta != NULL) esp_netif_dhcpc_stop(_sta);
+        if(_sta != NULL) esp_netif_dhcpc_stop(_sta);
     }
 
     return status();
@@ -239,8 +239,8 @@ bool WiFiSTAClass::reconnect()
     }
     else if(WiFi->getMode() == WIFI_MODE_NULL)
     {
-    	this->begin();
-    	return true;
+        this->begin();
+        return true;
     }
     return false;
 }
@@ -308,8 +308,8 @@ bool WiFiSTAClass::config(IPAddress local_ip, IPAddress gateway, IPAddress subne
     esp_netif_t *_sta = (esp_netif_t *)WiFi->_default_sta;
     if(_sta == NULL)
     {
-    	log_e("STA netif init failed!");
-    	return false;
+        log_e("STA netif init failed!");
+        return false;
     }
 
     err = esp_netif_dhcpc_stop(_sta);
@@ -444,7 +444,7 @@ IPAddress WiFiSTAClass::localIP()
 uint8_t* WiFiSTAClass::macAddress(uint8_t* mac)
 {
     if(WiFi->getMode() != WIFI_MODE_NULL){
-        esp_wifi_get_mac(WIFI_IF_STA, mac);	
+        esp_wifi_get_mac(WIFI_IF_STA, mac);
     }
     else{
         esp_read_mac(mac, ESP_MAC_WIFI_STA);

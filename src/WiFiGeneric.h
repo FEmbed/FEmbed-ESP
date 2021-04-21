@@ -36,18 +36,18 @@
 #include <osMutex.h>
 
 typedef enum {
-    WIFI_POWER_19_5dBm = 78,    // 19.5dBm
-    WIFI_POWER_19dBm = 76,      // 19dBm
-    WIFI_POWER_18_5dBm = 74,    // 18.5dBm
-    WIFI_POWER_17dBm = 68,      // 17dBm
-    WIFI_POWER_15dBm = 60,      // 15dBm
-    WIFI_POWER_13dBm = 52,      // 13dBm
-    WIFI_POWER_11dBm = 44,      // 11dBm
-    WIFI_POWER_8_5dBm = 34,     // 8.5dBm
-    WIFI_POWER_7dBm = 28,       // 7dBm
-    WIFI_POWER_5dBm = 20,       // 5dBm
-    WIFI_POWER_2dBm = 8,        // 2dBm
-    WIFI_POWER_MINUS_1dBm = -4  // -1dBm
+    WIFI_POWER_19_5dBm      = 78,       // 19.5dBm
+    WIFI_POWER_19dBm        = 76,       // 19dBm
+    WIFI_POWER_18_5dBm      = 74,       // 18.5dBm
+    WIFI_POWER_17dBm        = 68,       // 17dBm
+    WIFI_POWER_15dBm        = 60,       // 15dBm
+    WIFI_POWER_13dBm        = 52,       // 13dBm
+    WIFI_POWER_11dBm        = 44,       // 11dBm
+    WIFI_POWER_8_5dBm       = 34,       // 8.5dBm
+    WIFI_POWER_7dBm         = 28,       // 7dBm
+    WIFI_POWER_5dBm         = 20,       // 5dBm
+    WIFI_POWER_2dBm         = 8,        // 2dBm
+    WIFI_POWER_MINUS_1dBm   = -4        // -1dBm
 } wifi_power_t;
 
 static const int AP_STARTED_BIT    = BIT0;
@@ -93,7 +93,25 @@ class WiFiGenericClass
     bool setTxPower(wifi_power_t power);
     wifi_power_t getTxPower();
 
-    FE_NOTIFY_SIGNAL(14, WifiDNSDone, _network_event_group)
+    static const int AP_STARTED_BIT    = BIT0;
+    static const int AP_HAS_IP6_BIT    = BIT1;
+    static const int AP_HAS_CLIENT_BIT = BIT2;
+
+    FE_NOTIFY_SIGNAL( 0, ApStarted,    _network_event_group)
+    FE_NOTIFY_SIGNAL( 1, ApHasIPv6,    _network_event_group)
+    FE_NOTIFY_SIGNAL( 2, ApHasClient,  _network_event_group)
+    FE_NOTIFY_SIGNAL( 3, StaStarted,   _network_event_group)
+    FE_NOTIFY_SIGNAL( 4, StaConnected, _network_event_group)
+    FE_NOTIFY_SIGNAL( 5, StaHasIPv4,   _network_event_group)
+    FE_NOTIFY_SIGNAL( 6, StaHasIPv6,   _network_event_group)
+    FE_NOTIFY_SIGNAL( 7, EthStarted,   _network_event_group)
+    FE_NOTIFY_SIGNAL( 8, EthConnected, _network_event_group)
+    FE_NOTIFY_SIGNAL( 9, EthHasIPv4,   _network_event_group)
+    FE_NOTIFY_SIGNAL(10, EthHasIPv6,   _network_event_group)
+    FE_NOTIFY_SIGNAL(11, WiFiScanning, _network_event_group)
+    FE_NOTIFY_SIGNAL(12, WiFiScanDone, _network_event_group)
+    FE_NOTIFY_SIGNAL(13, WiFiDNSIdle , _network_event_group)
+    FE_NOTIFY_SIGNAL(14, WiFiDNSDone , _network_event_group)
   protected:
     bool _persistent;
     bool _long_range;

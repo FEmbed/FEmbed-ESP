@@ -74,7 +74,6 @@ void WiFiClass::printDiag(Print& p)
         p.print("Status: ");
         p.println(wifi_station_get_connect_status());
     */
-
     wifi_config_t conf;
     esp_wifi_get_config(WIFI_IF_STA, &conf);
 

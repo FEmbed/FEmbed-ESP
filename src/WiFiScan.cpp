@@ -42,13 +42,18 @@ extern "C" {
 #include "lwip/err.h"
 }
 
+#ifdef  LOG_TAG
+    #undef  LOG_TAG
+#endif
+#define LOG_TAG                             "WiFiScan"
+
 WiFiScanClass::WiFiScanClass()
 {
-	_scanAsync = false;
-	_scanStarted = 0;
-	_scanTimeout = 10000;
-	_scanCount = 0;
-	_scanResult = NULL;
+    _scanAsync = false;
+    _scanStarted = 0;
+    _scanTimeout = 10000;
+    _scanCount = 0;
+    _scanResult = NULL;
 }
 
 WiFiScanClass::~WiFiScanClass()
@@ -90,8 +95,8 @@ int16_t WiFiScanClass::scanNetworks(bool async, bool show_hidden, bool passive, 
     if(esp_wifi_scan_start(&config, false) == ESP_OK) {
         _scanStarted = millis();
         if (!_scanStarted) { //Prevent 0 from millis overflow
-	    ++_scanStarted;
-	}
+            ++_scanStarted;
+        }
 
         WiFi->clearStatusBits(WIFI_SCAN_DONE_BIT);
         WiFi->setStatusBits(WIFI_SCANNING_BIT);
@@ -128,29 +133,16 @@ void WiFiScanClass::scanDone()
 }
 
 /**
- *
- * @param i specify from which network item want to get the information
- * @return bss_info *
- */
-void * WiFiScanClass::_getScanInfoByIndex(int i)
-{
-    if(!_scanResult || (size_t) i >= _scanCount) {
-        return 0;
-    }
-    return reinterpret_cast<wifi_ap_record_t*>(_scanResult) + i;
-}
-
-/**
  * called to get the scan state in Async mode
  * @return scan result or status
  *          -1 if scan not fin
  *          -2 if scan not triggered
  */
-int16_t WiFiScanClass::scanComplete()
+int16_t WiFiScanClass::scanState()
 {
     if (_scanStarted && (millis()-_scanStarted) > _scanTimeout) { //Check is scan was started and if the delay expired, return WIFI_SCAN_FAILED in this case
-    	WiFi->clearStatusBits(WIFI_SCANNING_BIT);
-	return WIFI_SCAN_FAILED;
+        WiFi->clearStatusBits(WIFI_SCANNING_BIT);
+        return WIFI_SCAN_FAILED;
     }
 
     if(WiFi->getStatusBits() & WIFI_SCAN_DONE_BIT) {
@@ -177,6 +169,18 @@ void WiFiScanClass::scanDelete()
     }
 }
 
+/**
+ *
+ * @param i specify from which network item want to get the information
+ * @return bss_info *
+ */
+void * WiFiScanClass::getScanInfoByIndex(int i)
+{
+    if(!_scanResult || (size_t) i >= _scanCount) {
+        return NULL;
+    }
+    return reinterpret_cast<wifi_ap_record_t*>(_scanResult) + i;
+}
 
 /**
  * loads all infos from a scanned wifi in to the ptr parameters
@@ -190,7 +194,7 @@ void WiFiScanClass::scanDelete()
  */
 bool WiFiScanClass::getNetworkInfo(uint8_t i, String &ssid, uint8_t &encType, int32_t &rssi, uint8_t* &bssid, int32_t &channel)
 {
-    wifi_ap_record_t* it = reinterpret_cast<wifi_ap_record_t*>(_getScanInfoByIndex(i));
+    wifi_ap_record_t* it = reinterpret_cast<wifi_ap_record_t*>(getScanInfoByIndex(i));
     if(!it) {
         return false;
     }
@@ -210,7 +214,7 @@ bool WiFiScanClass::getNetworkInfo(uint8_t i, String &ssid, uint8_t &encType, in
  */
 String WiFiScanClass::SSID(uint8_t i)
 {
-    wifi_ap_record_t* it = reinterpret_cast<wifi_ap_record_t*>(_getScanInfoByIndex(i));
+    wifi_ap_record_t* it = reinterpret_cast<wifi_ap_record_t*>(getScanInfoByIndex(i));
     if(!it) {
         return String();
     }
@@ -225,7 +229,7 @@ String WiFiScanClass::SSID(uint8_t i)
  */
 wifi_auth_mode_t WiFiScanClass::encryptionType(uint8_t i)
 {
-    wifi_ap_record_t* it = reinterpret_cast<wifi_ap_record_t*>(_getScanInfoByIndex(i));
+    wifi_ap_record_t* it = reinterpret_cast<wifi_ap_record_t*>(getScanInfoByIndex(i));
     if(!it) {
         return WIFI_AUTH_OPEN;
     }
@@ -239,13 +243,12 @@ wifi_auth_mode_t WiFiScanClass::encryptionType(uint8_t i)
  */
 int32_t WiFiScanClass::RSSI(uint8_t i)
 {
-    wifi_ap_record_t* it = reinterpret_cast<wifi_ap_record_t*>(_getScanInfoByIndex(i));
+    wifi_ap_record_t* it = reinterpret_cast<wifi_ap_record_t*>(getScanInfoByIndex(i));
     if(!it) {
         return 0;
     }
     return it->rssi;
 }
-
 
 /**
  * return MAC / BSSID of scanned wifi
@@ -254,7 +257,7 @@ int32_t WiFiScanClass::RSSI(uint8_t i)
  */
 uint8_t * WiFiScanClass::BSSID(uint8_t i)
 {
-    wifi_ap_record_t* it = reinterpret_cast<wifi_ap_record_t*>(_getScanInfoByIndex(i));
+    wifi_ap_record_t* it = reinterpret_cast<wifi_ap_record_t*>(getScanInfoByIndex(i));
     if(!it) {
         return 0;
     }
@@ -269,7 +272,7 @@ uint8_t * WiFiScanClass::BSSID(uint8_t i)
 String WiFiScanClass::BSSIDstr(uint8_t i)
 {
     char mac[18] = { 0 };
-    wifi_ap_record_t* it = reinterpret_cast<wifi_ap_record_t*>(_getScanInfoByIndex(i));
+    wifi_ap_record_t* it = reinterpret_cast<wifi_ap_record_t*>(getScanInfoByIndex(i));
     if(!it) {
         return String();
     }
@@ -279,7 +282,7 @@ String WiFiScanClass::BSSIDstr(uint8_t i)
 
 int32_t WiFiScanClass::channel(uint8_t i)
 {
-    wifi_ap_record_t* it = reinterpret_cast<wifi_ap_record_t*>(_getScanInfoByIndex(i));
+    wifi_ap_record_t* it = reinterpret_cast<wifi_ap_record_t*>(getScanInfoByIndex(i));
     if(!it) {
         return 0;
     }

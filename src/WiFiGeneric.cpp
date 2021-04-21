@@ -58,7 +58,7 @@ static void event_handler(void* event_handler_arg,
                                 esp_event_base_t event_base,
                                 int32_t event_id,
                                 void* event_data) {
-	WiFi->_eventCallback(event_base, event_id, event_data);
+    WiFi->_eventCallback(event_base, event_id, event_data);
 }
 
 static bool _esp_wifi_started = false;
@@ -82,65 +82,67 @@ WiFiGenericClass::~WiFiGenericClass()
 }
 
 bool WiFiGenericClass::wifiLowLevelDeinit() {
-	log_d("wifiLowLevelDeinit begin");
-	if(lowLevelInitDone)
-	{
-		//1. Unregister all WiFi events into current object.
-		esp_event_handler_unregister(WIFI_EVENT, 		ESP_EVENT_ANY_ID, &event_handler);
-		esp_event_handler_unregister(MESH_EVENT, 		ESP_EVENT_ANY_ID, &event_handler);
-		esp_event_handler_unregister(SC_EVENT, 			ESP_EVENT_ANY_ID, &event_handler);
-		esp_event_handler_unregister(IP_EVENT, 			ESP_EVENT_ANY_ID, &event_handler);
-		esp_event_handler_unregister(WIFI_PROV_EVENT, 	ESP_EVENT_ANY_ID, &event_handler);
+    log_d("wifiLowLevelDeinit begin");
+    if(lowLevelInitDone)
+    {
+        //1. Unregister all WiFi events into current object.
+        esp_event_handler_unregister(WIFI_EVENT,         ESP_EVENT_ANY_ID, &event_handler);
+        esp_event_handler_unregister(MESH_EVENT,         ESP_EVENT_ANY_ID, &event_handler);
+        esp_event_handler_unregister(SC_EVENT,             ESP_EVENT_ANY_ID, &event_handler);
+        esp_event_handler_unregister(IP_EVENT,             ESP_EVENT_ANY_ID, &event_handler);
+        esp_event_handler_unregister(WIFI_PROV_EVENT,     ESP_EVENT_ANY_ID, &event_handler);
 
-		//2. Destory sta/ap netif
-		if(_default_sta)
-			esp_netif_destroy((esp_netif_t *)_default_sta);
-		if(_default_ap)
-			esp_netif_destroy((esp_netif_t *)_default_ap);
+        //2. Destory sta/ap netif
+        if(_default_sta)
+            esp_netif_destroy((esp_netif_t *)_default_sta);
+        if(_default_ap)
+            esp_netif_destroy((esp_netif_t *)_default_ap);
 
-		//3. Deinit wifi driver.
-		esp_wifi_deinit();
-#if 0	// Not stable for del loop task.
-		//4.Delete background thread.
-		esp_event_loop_delete_default();
+        //3. Deinit wifi driver.
+        esp_wifi_deinit();
+#if 0    // Not stable for del loop task.
+        //4.Delete background thread.
+        esp_event_loop_delete_default();
 
-		//5. No use
-		esp_netif_deinit();
+        //5. No use
+        esp_netif_deinit();
 #endif
-		esp_wifi_set_storage(WIFI_STORAGE_FLASH);
-		lowLevelInitDone = false;
-	}
+        esp_wifi_set_storage(WIFI_STORAGE_FLASH);
+        lowLevelInitDone = false;
+    }
     log_d("wifiLowLevelDeinit end");
     return true;
 }
 
 
 bool WiFiGenericClass::wifiLowLevelInit(bool persistent, wifi_mode_t m){
-	log_d("wifiLowLevelInit begin");
+    log_d("wifiLowLevelInit begin");
     if(!lowLevelInitDone) {
-    	//1. Do netif init, no deinit.
-	    static bool initialized = false;
-	    if(!initialized){
-	        nvs_flash_init();
-	        esp_netif_init();
+        //1. Do netif init, no deinit.
+        static bool initialized = false;
+        if(!initialized){
+            nvs_flash_init();
+            esp_netif_init();
 
-			//1.1. Background thread create.
-			esp_event_loop_create_default();
+            //1.1. Background thread create.
+            esp_event_loop_create_default();
 
-			//1.2. Start Wi-Fi thread to manage wifi driver.
-			WiFi->start();
-	    }
-	    //2.
+            //1.2. Start Wi-Fi thread to manage wifi driver.
+            WiFi->start();
+        }
+        //2.
         //3. Create default sta/ap netif by mode.
         switch(m)
         {
             case WIFI_MODE_STA:
-            	_default_sta = esp_netif_create_default_wifi_sta();
+                _default_sta = esp_netif_create_default_wifi_sta();
                 break;
             case WIFI_MODE_AP:
-            	_default_ap = esp_netif_create_default_wifi_ap();
+                _default_ap = esp_netif_create_default_wifi_ap();
                 break;
             case WIFI_MODE_APSTA:
+                _default_sta = esp_netif_create_default_wifi_sta();
+                _default_ap = esp_netif_create_default_wifi_ap();
                 break;
             default:;
         }
@@ -154,10 +156,10 @@ bool WiFiGenericClass::wifiLowLevelInit(bool persistent, wifi_mode_t m){
         }
 
         //5. Register all WiFi events into current object.
-        esp_event_handler_register(WIFI_EVENT, 		ESP_EVENT_ANY_ID, &event_handler, this);
-        esp_event_handler_register(MESH_EVENT, 		ESP_EVENT_ANY_ID, &event_handler, this);
-        esp_event_handler_register(SC_EVENT, 		ESP_EVENT_ANY_ID, &event_handler, this);
-        esp_event_handler_register(IP_EVENT, 		ESP_EVENT_ANY_ID, &event_handler, this);
+        esp_event_handler_register(WIFI_EVENT,         ESP_EVENT_ANY_ID, &event_handler, this);
+        esp_event_handler_register(MESH_EVENT,         ESP_EVENT_ANY_ID, &event_handler, this);
+        esp_event_handler_register(SC_EVENT,         ESP_EVENT_ANY_ID, &event_handler, this);
+        esp_event_handler_register(IP_EVENT,         ESP_EVENT_ANY_ID, &event_handler, this);
         esp_event_handler_register(WIFI_PROV_EVENT, ESP_EVENT_ANY_ID, &event_handler, this);
 
         if(!persistent){
@@ -166,7 +168,17 @@ bool WiFiGenericClass::wifiLowLevelInit(bool persistent, wifi_mode_t m){
 
         initialized = true;
         lowLevelInitDone = true;
-	    _network_event_group->set(WIFI_DNS_IDLE_BIT);
+        _network_event_group->set(WIFI_DNS_IDLE_BIT);
+    }
+    else
+    {
+        if(m == WIFI_MODE_APSTA)
+        {
+            if(!_default_sta)
+                _default_sta = esp_netif_create_default_wifi_sta();
+            if(!_default_ap)
+                _default_ap = esp_netif_create_default_wifi_ap();
+        }
     }
     log_d("wifiLowLevelInit end");
     return true;
@@ -261,7 +273,8 @@ bool WiFiGenericClass::mode(wifi_mode_t m)
         return true;
     }
 
-    if(!cm && m){
+    log_d("mode change from %d to %d.", cm , m);
+    if(m){
         if(!wifiLowLevelInit(_persistent, m)){
             return false;
         }
@@ -333,7 +346,7 @@ bool WiFiGenericClass::enableSTA(bool enable)
 
 /**
  * control AP mode
- * @param enable bool
+ * @param enable bool If current is not Ap, swith to it.
  * @return ok
  */
 bool WiFiGenericClass::enableAP(bool enable)
@@ -436,7 +449,7 @@ static void wifi_dns_found_callback(const char *name, const ip_addr_t *ipaddr, v
     if(ipaddr) {
         (*reinterpret_cast<IPAddress*>(callback_arg)) = ipaddr->u_addr.ip4.addr;
     }
-    WiFi->notifyWifiDNSDone();
+    WiFi->notifyWiFiDNSDone();
 }
 
 /**
@@ -467,12 +480,12 @@ int WiFiGenericClass::hostByName(const char* aHostname, IPAddress& aResult)
 }
 
 IPAddress WiFiGenericClass::calculateNetworkID(IPAddress ip, IPAddress subnet) {
-	IPAddress networkID;
+    IPAddress networkID;
 
-	for (size_t i = 0; i < 4; i++)
-		networkID[i] = subnet[i] & ip[i];
+    for (size_t i = 0; i < 4; i++)
+        networkID[i] = subnet[i] & ip[i];
 
-	return networkID;
+    return networkID;
 }
 
 IPAddress WiFiGenericClass::calculateBroadcast(IPAddress ip, IPAddress subnet) {
@@ -485,28 +498,28 @@ IPAddress WiFiGenericClass::calculateBroadcast(IPAddress ip, IPAddress subnet) {
 }
 
 uint8_t WiFiGenericClass::calculateSubnetCIDR(IPAddress subnetMask) {
-	uint8_t CIDR = 0;
+    uint8_t CIDR = 0;
 
-	for (uint8_t i = 0; i < 4; i++) {
-		if (subnetMask[i] == 0x80)  // 128
-			CIDR += 1;
-		else if (subnetMask[i] == 0xC0)  // 192
-			CIDR += 2;
-		else if (subnetMask[i] == 0xE0)  // 224
-			CIDR += 3;
-		else if (subnetMask[i] == 0xF0)  // 242
-			CIDR += 4;
-		else if (subnetMask[i] == 0xF8)  // 248
-			CIDR += 5;
-		else if (subnetMask[i] == 0xFC)  // 252
-			CIDR += 6;
-		else if (subnetMask[i] == 0xFE)  // 254
-			CIDR += 7;
-		else if (subnetMask[i] == 0xFF)  // 255
-			CIDR += 8;
-	}
+    for (uint8_t i = 0; i < 4; i++) {
+        if (subnetMask[i] == 0x80)  // 128
+            CIDR += 1;
+        else if (subnetMask[i] == 0xC0)  // 192
+            CIDR += 2;
+        else if (subnetMask[i] == 0xE0)  // 224
+            CIDR += 3;
+        else if (subnetMask[i] == 0xF0)  // 242
+            CIDR += 4;
+        else if (subnetMask[i] == 0xF8)  // 248
+            CIDR += 5;
+        else if (subnetMask[i] == 0xFC)  // 252
+            CIDR += 6;
+        else if (subnetMask[i] == 0xFE)  // 254
+            CIDR += 7;
+        else if (subnetMask[i] == 0xFF)  // 255
+            CIDR += 8;
+    }
 
-	return CIDR;
+    return CIDR;
 }
 
 void WiFiGenericClass::_meshCallback(uint32_t event_id, void* event_data)

@@ -40,10 +40,11 @@ public:
 
     bool softAP(const char* ssid, const char* passphrase = NULL, int channel = 1, int ssid_hidden = 0, int max_connection = 4);
     bool softAPConfig(IPAddress local_ip, IPAddress gateway, IPAddress subnet);
+    bool softAPConfig(const char* local_ip, const char* gateway, const char* subnet);
+
     bool softAPdisconnect(bool wifioff = false);
 
     uint8_t softAPgetStationNum();
-
     IPAddress softAPIP();
 
     IPAddress softAPBroadcastIP();
@@ -60,7 +61,6 @@ public:
     String softAPmacAddress(void);
 
 protected:
-
 };
 
 #endif /* ESP32WIFIAP_H_*/

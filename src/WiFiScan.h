@@ -35,7 +35,7 @@ public:
 	~WiFiScanClass();
     int16_t scanNetworks(bool async = false, bool show_hidden = false, bool passive = false, uint32_t max_ms_per_chan = 300, uint8_t channel = 0);
 
-    int16_t scanComplete();
+    int16_t scanState();
     void scanDelete();
 
     // scan result
@@ -47,9 +47,10 @@ public:
     uint8_t * BSSID(uint8_t networkItem);
     String BSSIDstr(uint8_t networkItem);
     int32_t channel(uint8_t networkItem);
-    void * getScanInfoByIndex(int i) { return _getScanInfoByIndex(i); };
-    void scanDone();
+    void * getScanInfoByIndex(int i);
+
 protected:
+    void scanDone();
 
     bool _scanAsync;
     
@@ -58,7 +59,6 @@ protected:
     uint16_t _scanCount;
 
     void * _scanResult;
-    void * _getScanInfoByIndex(int i);
 
 };
 
