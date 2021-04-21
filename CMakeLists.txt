@@ -4,12 +4,12 @@ set(src)
 set(include)
 set(priv_requires)
 
-set(srcs    "src/WifiManager.cpp"
+set(srcs    "src/BluFi.cpp"
             )
 set(include "src" 
             )
 
 idf_component_register(SRCS "${srcs}"
                        INCLUDE_DIRS ${include}
-                       REQUIRES "FEmbed-Arduino FEmbed-OS nvs_flash wifi_provisioning"
+                       REQUIRES "FEmbed-Arduino FEmbed-OS FEmbed-WiFi FEmbed-BLE nvs_flash wifi_provisioning"
                        PRIV_REQUIRES ${priv_requires})
