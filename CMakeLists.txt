@@ -5,11 +5,6 @@ set(include)
 set(priv_requires)
 
 set(srcs    "src/WifiManager.cpp"
-            "src/WiFiGeneric.cpp"
-            "src/WiFiSTA.cpp"
-            "src/WiFiAP.cpp"
-            "src/WiFiScan.cpp"
-            "src/WiFi.cpp"
             )
 set(include "src" 
             )
