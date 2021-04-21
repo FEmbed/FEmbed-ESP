@@ -213,7 +213,6 @@ bool WiFiAPClass::softAPConfig(const char* local_ip, const char* gateway, const 
 bool WiFiAPClass::softAPdisconnect(bool wifioff)
 {
     bool ret;
-    wifi_config_t conf;
 
     if(WiFi->getMode() == WIFI_MODE_NULL){
         return ESP_ERR_INVALID_STATE;
