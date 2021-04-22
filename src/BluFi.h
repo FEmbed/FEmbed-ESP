@@ -34,6 +34,8 @@
 
 namespace FEmbed {
 
+typedef void (*blufi_custom_data_recv_cb_t)(uint8_t *data, uint32_t data_len);
+
 class BluFi {
 public:
     BluFi();
@@ -41,6 +43,13 @@ public:
 
     static void init(std::string deviceName);
     static void deinit();
+    static void setAuthKey(std::string key);
+    static void setAuthPIN(std::string pin);
+    static void setAuthUserOrPIN(std::string val);
+
+    static bool sendCustomData(uint8_t *data, uint32_t data_len);
+    // Handle custom data.
+    static void setCustomRecvHandle(blufi_custom_data_recv_cb_t cb);
 
     // Custom WiFi callback.
     static esp_err_t handleWiFiEvent(esp_event_base_t event_base, int32_t event_id, void* event_data);
@@ -76,6 +85,14 @@ private:
 
     static int securityInit(void);
     static void securityDeinit(void);
+    static bool isAuthPassed();
+
+    static blufi_custom_data_recv_cb_t _custom_data_recv_cb;
+
+    /* Auth operate */
+    static std::string _auth_key;
+    static std::string _auth_pin;
+    static std::string _auth_user_or_pin;
 
     static blufi_security_t *_blufi_sec;
     static uint8_t _server_if;
@@ -87,8 +104,8 @@ private:
     static uint8_t _gl_sta_bssid[6];
     static uint8_t _gl_sta_ssid[32];
     static int _gl_sta_ssid_len;
-    static wifi_config_t sta_config;
-    static wifi_config_t ap_config;
+    static wifi_config_t _sta_config;
+    static wifi_config_t _ap_config;
 };
 
 #endif
