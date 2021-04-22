@@ -42,6 +42,14 @@ public:
     static void init(std::string deviceName);
     static void deinit();
 
+    // Custom WiFi callback.
+    static esp_err_t handleWiFiEvent(esp_event_base_t event_base, int32_t event_id, void* event_data);
+    static void handleScanDone(uint16_t count, void *result);
+
+    // Custom defined BLE Event.
+    static void handleBLEEvent(esp_gap_ble_cb_event_t  event,
+            esp_ble_gap_cb_param_t* param);
+
     // BluFi callbacks
     static void eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param);
     static void negotiateDataHandler(uint8_t *data, int len, uint8_t **output_data, int *output_len, bool *need_free);
@@ -70,10 +78,6 @@ private:
     static void securityDeinit(void);
 
     static blufi_security_t *_blufi_sec;
-#if (BLE_42_FEATURE_SUPPORT == TRUE)
-    static esp_ble_adv_data_t _adv_data;
-    static esp_ble_adv_params_t _adv_params;
-#endif
     static uint8_t _server_if;
     static uint16_t _conn_id;
 
@@ -85,7 +89,6 @@ private:
     static int _gl_sta_ssid_len;
     static wifi_config_t sta_config;
     static wifi_config_t ap_config;
-    static std::string _device_name;
 };
 
 #endif
