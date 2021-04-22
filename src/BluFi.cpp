@@ -319,8 +319,17 @@ void BluFi::handleBLEEvent(esp_gap_ble_cb_event_t  event,
 
 void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param)
 {
-    /* actually, should post to blufi_task handle the procedure,
-        * now, as a example, we do it more simply */
+    /**
+     * D (209028) nvs: nvs_set_blob sta.apinfo 700
+     * E (213968) task_wdt: Task watchdog got triggered. The following tasks did not reset the watchdog in time:
+     * E (213968) task_wdt:  - IDLE (CPU 0)
+     * E (213968) task_wdt: Tasks currently running:
+     * E (213968) task_wdt: CPU 0: btController
+     * E (213968) task_wdt: CPU 1: IDLE
+     * E (213968) task_wdt: Print CPU 0 (current core) backtrace
+     *
+     * Some function is slow, so reset task watchdog here.
+     */
    switch (event) {
        case ESP_BLUFI_EVENT_INIT_FINISH:
        {
@@ -359,6 +368,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
            if(isAuthPassed())
            {
                log_i("BLUFI Set WIFI opmode %d", param->wifi_mode.op_mode);
+               delay(100);
                WiFi->mode(param->wifi_mode.op_mode);
            }
            break;
@@ -370,6 +380,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
                 * there is no wifi callback when the device has already connected to this WiFi
                 * so disconnect wifi before connection.
                */
+               delay(100);
                WiFi->reconnect();
            }
            break;
