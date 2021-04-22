@@ -26,6 +26,7 @@
 
 #include "esp_blufi_api.h"
 #include "esp_gap_ble_api.h"
+#include "esp_wifi.h"
 
 #include "mbedtls/aes.h"
 #include "mbedtls/dhm.h"
@@ -48,7 +49,7 @@ public:
     static int decryptFunc(uint8_t iv8, uint8_t *crypt_data, int crypt_len);
     static uint16_t checksumFunc(uint8_t iv8, uint8_t *data, int len);
 private:
-    struct blufi_security {
+    typedef struct {
     #define DH_SELF_PUB_KEY_LEN     128
     #define DH_SELF_PUB_KEY_BIT_LEN (DH_SELF_PUB_KEY_LEN * 8)
         uint8_t  self_public_key[DH_SELF_PUB_KEY_LEN];
@@ -63,15 +64,27 @@ private:
         uint8_t  iv[16];
         mbedtls_dhm_context dhm;
         mbedtls_aes_context aes;
-    };
+    } blufi_security_t;
 
-    int securityInit(void);
-    void securityDeinit(void);
+    static int securityInit(void);
+    static void securityDeinit(void);
 
-    static struct blufi_security *_blufi_sec;
+    static blufi_security_t *_blufi_sec;
+#if (BLE_42_FEATURE_SUPPORT == TRUE)
     static esp_ble_adv_data_t _adv_data;
     static esp_ble_adv_params_t _adv_params;
+#endif
+    static uint8_t _server_if;
+    static uint16_t _conn_id;
+
+    /* store the station info for send back to phone */
+    static bool _gl_sta_connected;
     static bool _ble_is_connected;
+    static uint8_t _gl_sta_bssid[6];
+    static uint8_t _gl_sta_ssid[32];
+    static int _gl_sta_ssid_len;
+    static wifi_config_t sta_config;
+    static wifi_config_t ap_config;
     static std::string _device_name;
 };
 
