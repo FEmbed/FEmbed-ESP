@@ -144,16 +144,18 @@ void BluFi::setAuthUserOrPIN(std::string val)
 
 bool BluFi::isAuthPassed()
 {
-    if(_auth_key.empty())
-        return true;
-
-    if(_auth_key.compare(_auth_user_or_pin) == 0)
-        return true;
-
-    if(_auth_pin.compare(_auth_user_or_pin) == 0)
-        return true;
-
-    return false;
+    return true;
+//    if(_auth_key.empty())
+//        return true;
+//
+//    if(_auth_key.compare(_auth_user_or_pin) == 0)
+//        return true;
+//
+//    if(_auth_pin.compare(_auth_user_or_pin) == 0)
+//        return true;
+//
+//    log_d("Auth is not pass!");
+//    return false;
 }
 
 /**
@@ -350,7 +352,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
            log_i("BLUFI deinit finish");
            break;
        case ESP_BLUFI_EVENT_BLE_CONNECT:
-           log_i("BLUFI ble connect");
+           log_v("BLUFI ble connect");
            _ble_is_connected = true;
            _server_if = param->connect.server_if;
            _conn_id = param->connect.conn_id;
@@ -358,7 +360,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
            BluFi::securityInit();
            break;
        case ESP_BLUFI_EVENT_BLE_DISCONNECT:
-           log_i("BLUFI ble disconnect");
+           log_v("BLUFI ble disconnect");
            _ble_is_connected = false;
            BluFi::securityDeinit();
            _auth_user_or_pin.clear();
