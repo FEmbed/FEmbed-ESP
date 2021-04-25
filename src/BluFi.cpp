@@ -144,18 +144,17 @@ void BluFi::setAuthUserOrPIN(std::string val)
 
 bool BluFi::isAuthPassed()
 {
-    return true;
-//    if(_auth_key.empty())
-//        return true;
-//
-//    if(_auth_key.compare(_auth_user_or_pin) == 0)
-//        return true;
-//
-//    if(_auth_pin.compare(_auth_user_or_pin) == 0)
-//        return true;
-//
-//    log_d("Auth is not pass!");
-//    return false;
+    if(_auth_key.empty())
+        return true;
+
+    if(_auth_key.compare(_auth_user_or_pin) == 0)
+        return true;
+
+    if(_auth_pin.compare(_auth_user_or_pin) == 0)
+        return true;
+
+    log_d("Auth is not pass!");
+    return false;
 }
 
 /**
@@ -286,26 +285,29 @@ esp_err_t BluFi::handleWiFiEvent(
 void BluFi::handleScanDone(uint16_t apCount, void *result)
 {
     wifi_ap_record_t *ap_list = (wifi_ap_record_t *)result;
-    esp_blufi_ap_record_t * blufi_ap_list = (esp_blufi_ap_record_t *)malloc(apCount * sizeof(esp_blufi_ap_record_t));
-    if (!blufi_ap_list) {
-      if (ap_list) {
-          free(ap_list);
-      }
-      log_e("malloc error, blufi_ap_list is NULL");
-      return;
-    }
-    for (int i = 0; i < apCount; ++i)
+    if(apCount > 0)
     {
-      blufi_ap_list[i].rssi = ap_list[i].rssi;
-      memcpy(blufi_ap_list[i].ssid, ap_list[i].ssid, sizeof(ap_list[i].ssid));
-    }
+        esp_blufi_ap_record_t * blufi_ap_list = (esp_blufi_ap_record_t *)malloc(apCount * sizeof(esp_blufi_ap_record_t));
+        if (!blufi_ap_list) {
+          if (ap_list) {
+              free(ap_list);
+          }
+          log_e("malloc error, blufi_ap_list is NULL");
+          return;
+        }
+        for (int i = 0; i < apCount; ++i)
+        {
+          blufi_ap_list[i].rssi = ap_list[i].rssi;
+          memcpy(blufi_ap_list[i].ssid, ap_list[i].ssid, sizeof(ap_list[i].ssid));
+        }
 
-    if (_ble_is_connected == true) {
-      esp_blufi_send_wifi_list(apCount, blufi_ap_list);
-    } else {
-      log_i("BLUFI BLE is not connected yet");
+        if (_ble_is_connected == true) {
+          esp_blufi_send_wifi_list(apCount, blufi_ap_list);
+        } else {
+          log_i("BLUFI BLE is not connected yet");
+        }
+        free(blufi_ap_list);
     }
-    free(blufi_ap_list);
 }
 
 void BluFi::handleBLEEvent(esp_gap_ble_cb_event_t  event,
@@ -352,7 +354,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
            log_i("BLUFI deinit finish");
            break;
        case ESP_BLUFI_EVENT_BLE_CONNECT:
-           log_v("BLUFI ble connect");
+           log_d("BLUFI ble connect");
            _ble_is_connected = true;
            _server_if = param->connect.server_if;
            _conn_id = param->connect.conn_id;
@@ -360,7 +362,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
            BluFi::securityInit();
            break;
        case ESP_BLUFI_EVENT_BLE_DISCONNECT:
-           log_v("BLUFI ble disconnect");
+           log_d("BLUFI ble disconnect");
            _ble_is_connected = false;
            BluFi::securityDeinit();
            _auth_user_or_pin.clear();
