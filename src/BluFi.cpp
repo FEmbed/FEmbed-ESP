@@ -51,6 +51,7 @@ wifi_config_t BluFi::_sta_config = {0,};
 wifi_config_t BluFi::_ap_config = {0, };
 
 blufi_custom_data_recv_cb_t BluFi::_custom_data_recv_cb = NULL;
+blufi_custom_sta_conn_cb_t BluFi::_custom_sta_conn_cb = NULL;
 /**
  * @fn  BluFi()
  *
@@ -90,10 +91,10 @@ static esp_blufi_callbacks_t blufi_callbacks = {
 };
 
 
-void BluFi::init(std::string deviceName)
+void BluFi::init(String deviceName)
 {
     esp_err_t ret;
-    BLEDevice::init(deviceName);
+    BLEDevice::init(deviceName.c_str());
 
     /// Add BluFi handler.
     BLEDevice::setCustomGapHandler(BluFi::handleBLEEvent);
@@ -116,41 +117,63 @@ void BluFi::deinit()
     BluFi::securityDeinit();
 }
 
-std::string BluFi::_auth_key;
-std::string BluFi::_auth_pin;
-std::string BluFi::_auth_user_or_pin;
+String BluFi::_auth_key;
+String BluFi::_auth_pin;
+String BluFi::_auth_user_or_pin;
+String BluFi::_auth_curr_user;
 
 /**
- * @fn void setAuthKey(std::string)
+ * @fn void setAuthKey(String)
  *
  * Set BluFi auth key, if key is null or empty, no auth.
  *
  * @param key auth key value.
  */
-void BluFi::setAuthKey(std::string key)
+void BluFi::setAuthKey(String key)
 {
     _auth_key = key;
 }
 
-void BluFi::setAuthPIN(std::string pin)
+void BluFi::setAuthPIN(String pin)
 {
     _auth_pin = pin;
 }
 
-void BluFi::setAuthUserOrPIN(std::string val)
+void BluFi::setAuthUserOrPIN(String val)
 {
     _auth_user_or_pin = val;
 }
 
+void BluFi::setCurrentAuth(String val)
+{
+    _auth_curr_user = val;
+}
+
+String BluFi::getPIN()
+{
+    return _auth_pin;
+}
+
+// Random generate PIN - 6 numbers
+String BluFi::refreshPIN()
+{
+    char _pin[6];
+    randomSeed(sys_now());
+    for(int i=0; i< 6 ; i++)
+        _pin[i] = random('0', '9');
+    _auth_pin = _pin;
+    return _auth_pin;
+}
+
 bool BluFi::isAuthPassed()
 {
-    if(_auth_key.empty())
+    if(_auth_key.length() == 0)
         return true;
 
-    if(_auth_key.compare(_auth_user_or_pin) == 0)
+    if(_auth_key == _auth_user_or_pin)
         return true;
 
-    if(_auth_pin.compare(_auth_user_or_pin) == 0)
+    if(_auth_pin == _auth_user_or_pin)
         return true;
 
     log_d("Auth is not pass!");
@@ -178,6 +201,11 @@ bool BluFi::sendCustomData(uint8_t *data, uint32_t data_len)
 void BluFi::setCustomRecvHandle(blufi_custom_data_recv_cb_t cb)
 {
     _custom_data_recv_cb = cb;
+}
+
+void BluFi::setCustomConnHandle(blufi_custom_sta_conn_cb_t cb)
+{
+    _custom_sta_conn_cb = cb;
 }
 
 int BluFi::securityInit(void)
@@ -273,6 +301,14 @@ esp_err_t BluFi::handleWiFiEvent(
                 } else {
                     log_i("BLUFI BLE is not connected yet");
                 }
+                ///< bind ok with WiFi connected.
+                if(_auth_curr_user.length() > 0)
+                {
+                    setAuthKey(_auth_curr_user);
+                    refreshPIN();
+                }
+                if(_custom_sta_conn_cb != NULL)
+                    _custom_sta_conn_cb();
                 break;
             }
         default:
@@ -347,6 +383,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
            pAdvertising->setMaxInterval(0x100);
 
            _auth_user_or_pin.clear();
+           _auth_curr_user.clear();
            BLEDevice::startAdvertising();
            break;
        }
@@ -366,6 +403,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
            _ble_is_connected = false;
            BluFi::securityDeinit();
            _auth_user_or_pin.clear();
+           _auth_curr_user.clear();
            BLEDevice::startAdvertising();
            break;
        case ESP_BLUFI_EVENT_SET_WIFI_OPMODE:

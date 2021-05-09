@@ -31,26 +31,31 @@
 #include "mbedtls/aes.h"
 #include "mbedtls/dhm.h"
 #include "mbedtls/md5.h"
-
+#include "WString.h"
 namespace FEmbed {
 
 typedef void (*blufi_custom_data_recv_cb_t)(uint8_t *data, uint32_t data_len);
+typedef void (*blufi_custom_sta_conn_cb_t)();
 
 class BluFi {
 public:
     BluFi();
     virtual ~BluFi();
 
-    static void init(std::string deviceName);
+    static void init(String deviceName);
     static void deinit();
-    static void setAuthKey(std::string key);
-    static void setAuthPIN(std::string pin);
-    static void setAuthUserOrPIN(std::string val);
+    // Update for same auth/pin method.
+    static void setAuthUserOrPIN(String val);
+    static void setCurrentAuth(String val);
+    static String getPIN();
+    static String refreshPIN();
+    static bool isAuthPassed();
 
     static bool sendCustomData(uint8_t *data, uint32_t data_len);
     // Handle custom data.
     static void setCustomRecvHandle(blufi_custom_data_recv_cb_t cb);
-
+    static void setCustomConnHandle(blufi_custom_sta_conn_cb_t cb);
+    
     // Custom WiFi callback.
     static esp_err_t handleWiFiEvent(esp_event_base_t event_base, int32_t event_id, void* event_data);
     static void handleScanDone(uint16_t count, void *result);
@@ -66,6 +71,8 @@ public:
     static int decryptFunc(uint8_t iv8, uint8_t *crypt_data, int crypt_len);
     static uint16_t checksumFunc(uint8_t iv8, uint8_t *data, int len);
 private:
+    static void setAuthKey(String key);
+    static void setAuthPIN(String pin);
     typedef struct {
     #define DH_SELF_PUB_KEY_LEN     128
     #define DH_SELF_PUB_KEY_BIT_LEN (DH_SELF_PUB_KEY_LEN * 8)
@@ -85,14 +92,15 @@ private:
 
     static int securityInit(void);
     static void securityDeinit(void);
-    static bool isAuthPassed();
 
     static blufi_custom_data_recv_cb_t _custom_data_recv_cb;
+    static blufi_custom_sta_conn_cb_t _custom_sta_conn_cb;
 
     /* Auth operate */
-    static std::string _auth_key;
-    static std::string _auth_pin;
-    static std::string _auth_user_or_pin;
+    static String _auth_key;
+    static String _auth_pin;
+    static String _auth_user_or_pin;
+    static String _auth_curr_user;
 
     static blufi_security_t *_blufi_sec;
     static uint8_t _server_if;

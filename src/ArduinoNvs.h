@@ -40,7 +40,7 @@ extern "C" {
 
 class ArduinoNvs {
 public:
-  ArduinoNvs(String namespaceNvs = "storage", bool auto_reinit = false);
+  ArduinoNvs(String namespaceNvs = "storage", bool auto_reinit = true);
   ~ArduinoNvs();
 
   bool    eraseAll(bool forceCommit = true);
