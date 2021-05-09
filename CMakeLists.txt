@@ -5,6 +5,7 @@ set(include)
 set(priv_requires)
 
 set(srcs    "src/BluFi.cpp"
+            "src/ArduinoNvs.cpp"
             )
 set(include "src" 
             )
