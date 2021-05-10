@@ -47,7 +47,10 @@ public:
     // Update for same auth/pin method.
     static void setAuthUserOrPIN(String val);
     static void setCurrentAuth(String val);
+    static String getAuth();
     static String getPIN();
+    static void setAuthKey(String key);
+    static void setAuthPIN(String pin);
     static String refreshPIN();
     static bool isAuthPassed();
 
@@ -71,8 +74,6 @@ public:
     static int decryptFunc(uint8_t iv8, uint8_t *crypt_data, int crypt_len);
     static uint16_t checksumFunc(uint8_t iv8, uint8_t *data, int len);
 private:
-    static void setAuthKey(String key);
-    static void setAuthPIN(String pin);
     typedef struct {
     #define DH_SELF_PUB_KEY_LEN     128
     #define DH_SELF_PUB_KEY_BIT_LEN (DH_SELF_PUB_KEY_LEN * 8)

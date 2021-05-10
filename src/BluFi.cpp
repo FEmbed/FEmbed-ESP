@@ -139,6 +139,7 @@ void BluFi::setAuthPIN(String pin)
     _auth_pin = pin;
 }
 
+// 认证用的
 void BluFi::setAuthUserOrPIN(String val)
 {
     _auth_user_or_pin = val;
@@ -147,6 +148,11 @@ void BluFi::setAuthUserOrPIN(String val)
 void BluFi::setCurrentAuth(String val)
 {
     _auth_curr_user = val;
+}
+
+String BluFi::getAuth()
+{
+    return _auth_key;
 }
 
 String BluFi::getPIN()
