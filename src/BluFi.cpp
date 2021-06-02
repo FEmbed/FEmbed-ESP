@@ -150,6 +150,11 @@ void BluFi::setCurrentAuth(String val)
     _auth_curr_user = val;
 }
 
+String BluFi::getCurrentAuth()
+{
+    return _auth_curr_user;
+}
+
 String BluFi::getAuth()
 {
     return _auth_key;

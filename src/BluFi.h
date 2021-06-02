@@ -47,6 +47,7 @@ public:
     // Update for same auth/pin method.
     static void setAuthUserOrPIN(String val);
     static void setCurrentAuth(String val);
+    static String getCurrentAuth();
     static String getAuth();
     static String getPIN();
     static void setAuthKey(String key);
