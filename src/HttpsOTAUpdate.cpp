@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <OSTask.h>
+#include <osTask.h>
 
 #include "esp_http_client.h"
 #include "esp_https_ota.h"

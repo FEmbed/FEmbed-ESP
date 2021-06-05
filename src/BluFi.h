@@ -22,7 +22,7 @@
 #include "sdkconfig.h"
 
 #if defined(CONFIG_BT_ENABLED)
-#include <OSTask.h>
+#include <osTask.h>
 
 #include "esp_blufi_api.h"
 #include "esp_gap_ble_api.h"
