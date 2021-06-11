@@ -7,7 +7,7 @@ set(priv_requires)
 set(srcs    "src/BluFi.cpp"
             "src/ArduinoNvs.cpp"
             "src/HttpsOTAUpdate.cpp"
-            "src/Updater.cpp"
+            "src/Update.cpp"
             )
 set(include "src" 
             )

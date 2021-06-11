@@ -88,6 +88,7 @@ class UpdateClass {
       sets the expected MD5 for the firmware (hexString)
     */
     bool setMD5(const char * expected_md5);
+    bool setMD5(String expected_md5);
 
     /*
       returns the MD5 String of the successfully ended firmware
