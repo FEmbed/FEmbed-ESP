@@ -79,6 +79,7 @@ public:
         return _nvs_valid;
     }
 
+    static FEmbed::OSMutex& globalLock() { return nvs_global_lock; }
 protected:
     nvs_handle _nvs_handle;
 
