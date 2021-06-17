@@ -23,7 +23,7 @@
 #include "osSignal.h"
 #include "WString.h"
 
-#include "tcpip_adapter.h"
+#include "esp_netif.h"
 
 #include <memory>
 using std::shared_ptr;
@@ -45,7 +45,7 @@ public:
     virtual ~WifiManager();
 
     virtual void loop();
-    
+
     void connect();
     void disconnect();
 
@@ -62,7 +62,7 @@ public:
      */
     void saveRawWebsocketConfig(char *buf);
     void saveWebsocketCPId(char *cp_id);
-    
+
     shared_ptr<String> getWebsocketHost();
     uint32_t getWebsocketPort();
     shared_ptr<String> getWebsocketUrl();
@@ -85,7 +85,7 @@ public:
 
     /**
      * @brief Get Device MAC string
-     * 
+     *
      * @return char* mac
      */
     uint8_t *getMAC() const { return (uint8_t *)m_mac; }
@@ -118,7 +118,7 @@ private:
 
     uint8_t m_mac[6];              ///< device default mac information
     tcpip_adapter_ip_info_t m_adp_ip;
-    
+
     /**
      * After Boot, module will check wifi mode, if it's STA, then check ssid, no
      * ssid for Smartconfig else normal STA.
