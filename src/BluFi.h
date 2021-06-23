@@ -28,15 +28,12 @@
 #include "esp_gap_ble_api.h"
 #include "esp_wifi.h"
 
-#include "mbedtls/aes.h"
-#include "mbedtls/dhm.h"
-#include "mbedtls/md5.h"
 #include "WString.h"
 namespace FEmbed {
 
 typedef void (*blufi_custom_data_recv_cb_t)(uint8_t *data, uint32_t data_len);
 typedef void (*blufi_custom_sta_conn_cb_t)();
-
+struct blufi_security_t;
 class BluFi {
 public:
     BluFi();
@@ -75,22 +72,6 @@ public:
     static int decryptFunc(uint8_t iv8, uint8_t *crypt_data, int crypt_len);
     static uint16_t checksumFunc(uint8_t iv8, uint8_t *data, int len);
 private:
-    typedef struct {
-    #define DH_SELF_PUB_KEY_LEN     128
-    #define DH_SELF_PUB_KEY_BIT_LEN (DH_SELF_PUB_KEY_LEN * 8)
-        uint8_t  self_public_key[DH_SELF_PUB_KEY_LEN];
-    #define SHARE_KEY_LEN           128
-    #define SHARE_KEY_BIT_LEN       (SHARE_KEY_LEN * 8)
-        uint8_t  share_key[SHARE_KEY_LEN];
-        size_t   share_len;
-    #define PSK_LEN                 16
-        uint8_t  psk[PSK_LEN];
-        uint8_t  *dh_param;
-        int      dh_param_len;
-        uint8_t  iv[16];
-        mbedtls_dhm_context dhm;
-        mbedtls_aes_context aes;
-    } blufi_security_t;
 
     static int securityInit(void);
     static void securityDeinit(void);

@@ -23,6 +23,10 @@
 #include <WiFi.h>
 #include <Arduino.h>
 
+#include "mbedtls/aes.h"
+#include "mbedtls/dhm.h"
+#include "mbedtls/md5.h"
+
 #include "esp_bt_defs.h"
 #include "esp_crc.h"
 
@@ -33,10 +37,27 @@
 
 namespace FEmbed {
 
+struct blufi_security_t {
+#define DH_SELF_PUB_KEY_LEN     128
+#define DH_SELF_PUB_KEY_BIT_LEN (DH_SELF_PUB_KEY_LEN * 8)
+    uint8_t  self_public_key[DH_SELF_PUB_KEY_LEN];
+#define SHARE_KEY_LEN           128
+#define SHARE_KEY_BIT_LEN       (SHARE_KEY_LEN * 8)
+    uint8_t  share_key[SHARE_KEY_LEN];
+    size_t   share_len;
+#define PSK_LEN                 16
+    uint8_t  psk[PSK_LEN];
+    uint8_t  *dh_param;
+    int      dh_param_len;
+    uint8_t  iv[16];
+    mbedtls_dhm_context dhm;
+    mbedtls_aes_context aes;
+};
+
 //first uuid, 16bit, [2],[3] ff ff is the value
 #define _blufi_service_uuid        "0000ffff-0000-1000-8000-00805f9b34fb"
 
-BluFi::blufi_security_t *BluFi::_blufi_sec = NULL;
+blufi_security_t *BluFi::_blufi_sec = NULL;
 
 uint8_t BluFi::_server_if = 0;
 uint16_t BluFi::_conn_id = 0;
