@@ -187,7 +187,7 @@ String BluFi::refreshPIN() {
     randomSeed(sys_now());
     for (int i = 0; i < 6; i++)
         _pin[i] = random('0', '9');
-    _pin[7] = 0;
+    _pin[6] = 0;
     _auth_pin = _pin;
     return _auth_pin;
 }
