@@ -319,7 +319,7 @@ bool ArduinoNvs::getString(String key, String &res)
 
 String ArduinoNvs::getString(String key)
 {
-    String res;
+    static String res;
     bool ok = getString(key, res);
     if (!ok)
         return String();
