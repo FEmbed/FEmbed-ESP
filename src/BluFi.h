@@ -32,6 +32,7 @@
 namespace FEmbed {
 
 typedef void (*blufi_custom_data_recv_cb_t)(uint8_t *data, uint32_t data_len);
+typedef void (*blufi_custom_wifi_mode_chg_cb_t)();
 typedef void (*blufi_custom_sta_conn_cb_t)();
 struct blufi_security_t;
 class BluFi {
@@ -56,6 +57,7 @@ public:
     // Handle custom data.
     static void setCustomRecvHandle(blufi_custom_data_recv_cb_t cb);
     static void setCustomConnHandle(blufi_custom_sta_conn_cb_t cb);
+    static void setCustomModeChgHandle(blufi_custom_wifi_mode_chg_cb_t cb);
     
     // Custom WiFi callback.
     static esp_err_t handleWiFiEvent(esp_event_base_t event_base, int32_t event_id, void* event_data);
@@ -78,6 +80,7 @@ private:
 
     static blufi_custom_data_recv_cb_t _custom_data_recv_cb;
     static blufi_custom_sta_conn_cb_t _custom_sta_conn_cb;
+    static blufi_custom_wifi_mode_chg_cb_t _custom_wifi_mode_chg_cb;
 
     /* Auth operate */
     static String _auth_key;

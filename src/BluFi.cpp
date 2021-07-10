@@ -81,6 +81,7 @@ wifi_config_t BluFi::_ap_config = {
 
 blufi_custom_data_recv_cb_t BluFi::_custom_data_recv_cb = NULL;
 blufi_custom_sta_conn_cb_t BluFi::_custom_sta_conn_cb = NULL;
+blufi_custom_wifi_mode_chg_cb_t BluFi::_custom_wifi_mode_chg_cb = NULL;
 /**
  * @fn  BluFi()
  *
@@ -230,6 +231,11 @@ void BluFi::setCustomRecvHandle(blufi_custom_data_recv_cb_t cb) {
 void BluFi::setCustomConnHandle(blufi_custom_sta_conn_cb_t cb) {
     _custom_sta_conn_cb = cb;
 }
+
+void BluFi::setCustomModeChgHandle(blufi_custom_wifi_mode_chg_cb_t cb) {
+    _custom_wifi_mode_chg_cb = cb;
+}
+
 
 int BluFi::securityInit(void) {
     _blufi_sec = (blufi_security_t *)malloc(sizeof(blufi_security_t));
@@ -419,7 +425,9 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
     case ESP_BLUFI_EVENT_SET_WIFI_OPMODE:
         if (isAuthPassed()) {
             log_i("BLUFI Set WIFI opmode %d", param->wifi_mode.op_mode);
-            delay(100);
+            if(_custom_wifi_mode_chg_cb != NULL)
+                _custom_wifi_mode_chg_cb();
+            delay(500);
             WiFi->mode(param->wifi_mode.op_mode);
         }
         break;
