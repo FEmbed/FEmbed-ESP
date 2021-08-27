@@ -137,8 +137,9 @@ void BluFi::init(String deviceName) {
 }
 
 void BluFi::deinit() {
-    BLEDevice::deinit(true);
+    esp_blufi_profile_deinit();
     BluFi::securityDeinit();
+    BLEDevice::deinit(true);
 }
 
 String BluFi::_auth_key;
