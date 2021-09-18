@@ -423,6 +423,8 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
         BluFi::securityDeinit();
         BLEDevice::startAdvertising();
         break;
+#if ONLY_USE_BLUETOOTH
+#else
     case ESP_BLUFI_EVENT_SET_WIFI_OPMODE:
         if (isAuthPassed()) {
             log_i("BLUFI Set WIFI opmode %d", param->wifi_mode.op_mode);
@@ -449,10 +451,13 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
             WiFi->disconnect(true);
         }
         break;
+#endif
     case ESP_BLUFI_EVENT_REPORT_ERROR:
         log_e("BLUFI report error, error code %d", param->report_error.state);
         esp_blufi_send_error_info(param->report_error.state);
         break;
+#if ONLY_USE_BLUETOOTH
+#else
     case ESP_BLUFI_EVENT_GET_WIFI_STATUS: {
         wifi_mode_t mode;
         esp_blufi_extra_info_t info;
@@ -471,6 +476,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
         log_i("BLUFI get wifi status from AP");
         break;
     }
+#endif
     case ESP_BLUFI_EVENT_RECV_SLAVE_DISCONNECT_BLE:
         log_i("blufi close a gatt connection");
         esp_blufi_close(_server_if, _conn_id);
@@ -478,6 +484,8 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
     case ESP_BLUFI_EVENT_DEAUTHENTICATE_STA:
         /* TODO */
         break;
+#if ONLY_USE_BLUETOOTH
+#else
     case ESP_BLUFI_EVENT_RECV_STA_BSSID:
         if (isAuthPassed()) {
             memcpy(_sta_config.sta.bssid, param->sta_bssid.bssid, 6);
@@ -555,6 +563,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
         }
         break;
     }
+#endif
     case ESP_BLUFI_EVENT_RECV_CUSTOM_DATA:
         log_i("Recv Custom Data %d", param->custom_data.data_len);
         esp_log_buffer_hex("Custom Data", param->custom_data.data, param->custom_data.data_len);
