@@ -195,6 +195,10 @@ String BluFi::refreshPIN() {
 }
 
 bool BluFi::isAuthPassed() {
+
+#if ONLY_USE_BLUETOOTH
+    return true;
+#endif
     if (_auth_key.length() == 0)
         return true;
 
