@@ -24,10 +24,12 @@
 #if defined(CONFIG_BT_ENABLED)
 #include <osTask.h>
 
-#include "esp_blufi_api.h"
+extern "C"
+{
+#include "esp_blufi.h"
 #include "esp_gap_ble_api.h"
 #include "esp_wifi.h"
-
+}
 #include "WString.h"
 namespace FEmbed {
 
