@@ -214,6 +214,20 @@ bool BluFi::isAuthPassed() {
     return false;
 }
 
+bool BluFi::isKeyAuthPassed()
+{
+#if ONLY_USE_BLUETOOTH
+    return true;
+#endif
+    if (_auth_key.length() == 0)
+        return true;
+
+    if (_auth_key == _auth_user_or_pin)
+        return true;
+    log_d("Auth is not pass!");
+    return false;
+}
+
 /**
  * @fn bool sendCustomData(uint8_t*, uint32_t)
  *
@@ -332,7 +346,9 @@ esp_err_t BluFi::handleWiFiEvent(
                 log_i("BLUFI BLE is not connected yet");
             }
             ///< bind ok with WiFi connected.
-            if (_auth_curr_user.length() > 0) {
+            if (isAuthPassed()
+                && isKeyAuthPassed()
+                && _auth_curr_user.length() > 0) {
                 setAuthKey(_auth_curr_user);
                 refreshPIN();
             }

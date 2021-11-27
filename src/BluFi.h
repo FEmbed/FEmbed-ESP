@@ -54,13 +54,14 @@ public:
     static void setAuthPIN(String pin);
     static String refreshPIN();
     static bool isAuthPassed();
+    static bool isKeyAuthPassed();
 
     static bool sendCustomData(uint8_t *data, uint32_t data_len);
     // Handle custom data.
     static void setCustomRecvHandle(blufi_custom_data_recv_cb_t cb);
     static void setCustomConnHandle(blufi_custom_sta_conn_cb_t cb);
     static void setCustomModeChgHandle(blufi_custom_wifi_mode_chg_cb_t cb);
-    
+
     // Custom WiFi callback.
     static esp_err_t handleWiFiEvent(esp_event_base_t event_base, int32_t event_id, void* event_data);
     static void handleScanDone(uint16_t count, void *result);
