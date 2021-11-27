@@ -346,8 +346,7 @@ esp_err_t BluFi::handleWiFiEvent(
                 log_i("BLUFI BLE is not connected yet");
             }
             ///< bind ok with WiFi connected.
-            if (isAuthPassed()
-                && isKeyAuthPassed()
+            if (isKeyAuthPassed()
                 && _auth_curr_user.length() > 0) {
                 setAuthKey(_auth_curr_user);
                 refreshPIN();
