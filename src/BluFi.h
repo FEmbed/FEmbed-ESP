@@ -104,8 +104,7 @@ private:
     static wifi_config_t _sta_config;
     static wifi_config_t _ap_config;
 };
-
-#endif
 } /* namespace FEmbed */
+#endif
 
 #endif /* LIB_FEMBED_ESP_SRC_BLUFI_H_ */
