@@ -197,7 +197,6 @@ String BluFi::refreshPIN() {
 }
 
 bool BluFi::isAuthPassed() {
-
 #if ONLY_USE_BLUETOOTH
     return true;
 #endif
@@ -209,8 +208,9 @@ bool BluFi::isAuthPassed() {
 
     if (_auth_pin == _auth_user_or_pin)
         return true;
-
-    log_d("Auth is not pass!");
+#if LFS_AGING_TEST == 0
+    log_d"Auth is not pass!");
+#endif
     return false;
 }
 
@@ -224,7 +224,9 @@ bool BluFi::isKeyAuthPassed()
 
     if (_auth_key == _auth_user_or_pin)
         return true;
+#if LFS_AGING_TEST == 0
     log_d("Auth is not pass!");
+#endif
     return false;
 }
 
