@@ -35,7 +35,7 @@ ArduinoNvs::ArduinoNvs(String namespaceNvs, bool auto_reinit)
     esp_err_t err = nvs_flash_init();
     if (err != ESP_OK)
     {
-        log_d("Cannot init flash mem");
+        log_w("Cannot init flash mem");
         if (err != ESP_ERR_NVS_NO_FREE_PAGES)
         {
             log_w("flash init failed");
@@ -45,7 +45,7 @@ ArduinoNvs::ArduinoNvs(String namespaceNvs, bool auto_reinit)
         if (!auto_reinit)
             return;
         // erase and reinit
-        log_d("Try reinit the partition");
+        log_w("Try reinit the partition");
         const esp_partition_t *nvs_partition = esp_partition_find_first(
             ESP_PARTITION_TYPE_DATA, ESP_PARTITION_SUBTYPE_DATA_NVS, NULL);
         if (nvs_partition == NULL)
@@ -54,7 +54,7 @@ ArduinoNvs::ArduinoNvs(String namespaceNvs, bool auto_reinit)
         esp_err_t err = nvs_flash_init();
         if (err)
             return;
-        log_d("Partition re-formatted");
+        log_w("Partition re-formatted");
     }
 
     err = nvs_open(namespaceNvs.c_str(), NVS_READWRITE, &_nvs_handle);
@@ -64,6 +64,7 @@ ArduinoNvs::ArduinoNvs(String namespaceNvs, bool auto_reinit)
         return;
     }
 
+    log_i("nvs %s init successful.", namespaceNvs.c_str());
     _nvs_valid = true;
 }
 
@@ -85,7 +86,10 @@ bool ArduinoNvs::eraseAll(bool forceCommit)
     esp_err_t err = nvs_erase_all(_nvs_handle);
     nvs_global_lock.unlock();
     if (err != ESP_OK)
+    {
+        log_w("eraseAll failed(%d).", err);
         return false;
+    }
     return forceCommit ? commit() : true;
 }
 
@@ -97,7 +101,10 @@ bool ArduinoNvs::erase(String key, bool forceCommit)
     esp_err_t err = nvs_erase_key(_nvs_handle, key.c_str());
     nvs_global_lock.unlock();
     if (err != ESP_OK)
+    {
+        log_w("erase failed(%d).", err);
         return false;
+    }
     return forceCommit ? commit() : true;
 }
 
@@ -109,7 +116,10 @@ bool ArduinoNvs::commit()
     esp_err_t err = nvs_commit(_nvs_handle);
     nvs_global_lock.unlock();
     if (err != ESP_OK)
+    {
+        log_w("commit failed(%d).", err);
         return false;
+    }
     return true;
 }
 
@@ -121,7 +131,10 @@ bool ArduinoNvs::setInt(String key, uint8_t value, bool forceCommit)
     esp_err_t err = nvs_set_u8(_nvs_handle, (char *)key.c_str(), value);
     nvs_global_lock.unlock();
     if (err != ESP_OK)
+    {
+        log_w("setInt %s failed(%d).", key.c_str(), err);
         return false;
+    }
     return forceCommit ? commit() : true;
 }
 
@@ -133,7 +146,10 @@ bool ArduinoNvs::setInt(String key, int16_t value, bool forceCommit)
     esp_err_t err = nvs_set_i16(_nvs_handle, (char *)key.c_str(), value);
     nvs_global_lock.unlock();
     if (err != ESP_OK)
+    {
+        log_w("setInt %s failed(%d).", key.c_str(), err);
         return false;
+    }
     return forceCommit ? commit() : true;
 }
 
@@ -145,7 +161,10 @@ bool ArduinoNvs::setInt(String key, uint16_t value, bool forceCommit)
     esp_err_t err = nvs_set_u16(_nvs_handle, (char *)key.c_str(), value);
     nvs_global_lock.unlock();
     if (err != ESP_OK)
+    {
+        log_w("setInt %s failed(%d).", key.c_str(), err);
         return false;
+    }
     return forceCommit ? commit() : true;
 }
 
@@ -157,7 +176,10 @@ bool ArduinoNvs::setInt(String key, int32_t value, bool forceCommit)
     esp_err_t err = nvs_set_i32(_nvs_handle, (char *)key.c_str(), value);
     nvs_global_lock.unlock();
     if (err != ESP_OK)
+    {
+        log_w("setInt %s failed(%d).", key.c_str(), err);
         return false;
+    }
     return forceCommit ? commit() : true;
 }
 
@@ -169,7 +191,10 @@ bool ArduinoNvs::setInt(String key, uint32_t value, bool forceCommit)
     esp_err_t err = nvs_set_u32(_nvs_handle, (char *)key.c_str(), value);
     nvs_global_lock.unlock();
     if (err != ESP_OK)
+    {
+        log_w("setInt %s failed(%d).", key.c_str(), err);
         return false;
+    }
     return forceCommit ? commit() : true;
 }
 bool ArduinoNvs::setInt(String key, int64_t value, bool forceCommit)
@@ -180,7 +205,10 @@ bool ArduinoNvs::setInt(String key, int64_t value, bool forceCommit)
     esp_err_t err = nvs_set_i64(_nvs_handle, (char *)key.c_str(), value);
     nvs_global_lock.unlock();
     if (err != ESP_OK)
+    {
+        log_w("setInt %s failed(%d).", key.c_str(), err);
         return false;
+    }
     return forceCommit ? commit() : true;
 }
 
@@ -192,7 +220,10 @@ bool ArduinoNvs::setInt(String key, uint64_t value, bool forceCommit)
     esp_err_t err = nvs_set_u64(_nvs_handle, (char *)key.c_str(), value);
     nvs_global_lock.unlock();
     if (err != ESP_OK)
+    {
+        log_w("setInt %s failed(%d).", key.c_str(), err);
         return false;
+    }
     return forceCommit ? commit() : true;
 }
 
@@ -205,7 +236,10 @@ bool ArduinoNvs::setString(String key, String value, bool forceCommit)
                                 value.c_str());
     nvs_global_lock.unlock();
     if (err != ESP_OK)
+    {
+        log_w("setString %s failed(%d).", key.c_str(), err);
         return false;
+    }
     return forceCommit ? commit() : true;
 }
 
