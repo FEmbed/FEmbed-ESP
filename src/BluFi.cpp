@@ -131,7 +131,7 @@ void BluFi::init(String deviceName) {
     BluFi::securityInit();
     ret = esp_blufi_register_callbacks(&blufi_callbacks);
     if (ret) {
-        log_e("%s blufi register failed, error code = %x", __func__, ret);
+        log_e("%s Blufi register failed, error code = %x", __func__, ret);
         return;
     }
 
@@ -144,10 +144,14 @@ void BluFi::deinit() {
     BLEDevice::deinit(true);
 }
 
-String BluFi::_auth_key;
-String BluFi::_auth_pin;
-String BluFi::_auth_user_or_pin;
-String BluFi::_auth_curr_user;
+/**
+ * @brief 用于认证的相关变量
+ * 
+ */
+String BluFi::_auth_key;                    //  设备中存储的认证KEY，一般用用户的idtoken
+String BluFi::_auth_pin;                    //  设备中存储的认证PIN，一般用户存储的PIN码
+String BluFi::_auth_user_or_pin;            //  当前通过认证的信息，可能是用户KEY，或PIN值
+String BluFi::_auth_curr_user;              //  当前连接的用户KEY
 
 /**
  * @fn void setAuthKey(String)
@@ -197,7 +201,6 @@ String BluFi::refreshPIN() {
 }
 
 bool BluFi::isAuthPassed() {
-
 #if ONLY_USE_BLUETOOTH
     return true;
 #endif
@@ -209,8 +212,25 @@ bool BluFi::isAuthPassed() {
 
     if (_auth_pin == _auth_user_or_pin)
         return true;
-
+#if LFS_AGING_TEST == 0
     log_d("Auth is not pass!");
+#endif
+    return false;
+}
+
+bool BluFi::isKeyAuthPassed()
+{
+#if ONLY_USE_BLUETOOTH
+    return true;
+#endif
+    if (_auth_key.length() == 0)
+        return true;
+
+    if (_auth_key == _auth_user_or_pin)
+        return true;
+#if LFS_AGING_TEST == 0
+    log_d("Auth is not pass!");
+#endif
     return false;
 }
 
@@ -311,7 +331,7 @@ esp_err_t BluFi::handleWiFiEvent(
                     esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_FAIL, 0, NULL);
                 }
             } else {
-                log_i("BLUFI BLE is not connected yet");
+                log_i("BLUFI is not connected at ap start");
             }
             break;
         default:;
@@ -329,10 +349,11 @@ esp_err_t BluFi::handleWiFiEvent(
             if (_ble_is_connected == true) {
                 esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_SUCCESS, 0, &info);
             } else {
-                log_i("BLUFI BLE is not connected yet");
+                log_i("BLUFI BLE is not connected at got ip.");
             }
             ///< bind ok with WiFi connected.
-            if (_auth_curr_user.length() > 0) {
+            if (isKeyAuthPassed()
+                && _auth_curr_user.length() > 0) {
                 setAuthKey(_auth_curr_user);
                 refreshPIN();
             }
@@ -366,7 +387,7 @@ void BluFi::handleScanDone(uint16_t apCount, void *result) {
         if (_ble_is_connected == true) {
             esp_blufi_send_wifi_list(apCount, blufi_ap_list);
         } else {
-            log_i("BLUFI BLE is not connected yet");
+            log_i("BLUFI BLE is not connected after scan done.");
         }
         free(blufi_ap_list);
     }
