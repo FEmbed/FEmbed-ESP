@@ -102,7 +102,7 @@ bool ArduinoNvs::erase(String key, bool forceCommit)
     nvs_global_lock.unlock();
     if (err != ESP_OK)
     {
-        log_w("erase failed(%d).", err);
+        log_w("erase `%s` failed(%d).", key.c_str(), err);
         return false;
     }
     return forceCommit ? commit() : true;
