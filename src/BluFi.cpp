@@ -456,7 +456,10 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
         if (isAuthPassed()) {
             log_i("BLUFI Set WIFI opmode %d", param->wifi_mode.op_mode);
             if(_custom_wifi_mode_chg_cb != NULL)
+            {
                 _custom_wifi_mode_chg_cb();
+            }
+            WiFi->mode(WIFI_MODE_NULL);
             delay(500);
             WiFi->mode(param->wifi_mode.op_mode);
         }
