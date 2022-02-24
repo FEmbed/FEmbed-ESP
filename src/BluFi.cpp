@@ -75,10 +75,10 @@ uint8_t BluFi::_gl_sta_ssid[32] = {
 int BluFi::_gl_sta_ssid_len = 0;
 
 wifi_config_t BluFi::_sta_config = {
-    0,
+    {{0}},
 };
 wifi_config_t BluFi::_ap_config = {
-    0,
+    {{0}},
 };
 
 blufi_custom_data_recv_cb_t BluFi::_custom_data_recv_cb = NULL;
@@ -104,11 +104,9 @@ blufi_custom_wifi_mode_chg_cb_t BluFi::_custom_wifi_mode_chg_cb = NULL;
  *  More information please refer https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/blufi.html
  */
 BluFi::BluFi() {
-    // TODO Auto-generated constructor stub
 }
 
 BluFi::~BluFi() {
-    // TODO Auto-generated destructor stub
 }
 
 static esp_blufi_callbacks_t blufi_callbacks = {
@@ -148,10 +146,10 @@ void BluFi::deinit() {
  * @brief 用于认证的相关变量
  * 
  */
-String BluFi::_auth_key;                    //  设备中存储的认证KEY，一般用用户的idtoken
-String BluFi::_auth_pin;                    //  设备中存储的认证PIN，一般用户存储的PIN码
-String BluFi::_auth_user_or_pin;            //  当前通过认证的信息，可能是用户KEY，或PIN值
-String BluFi::_auth_curr_user;              //  当前连接的用户KEY
+String BluFi::_auth_key;                    ///  设备中存储的认证KEY，一般用用户的idtoken
+String BluFi::_auth_pin;                    ///  设备中存储的认证PIN，一般用户存储的PIN码
+String BluFi::_auth_user_or_pin;            ///  当前通过认证的信息，可能是用户KEY，或PIN值
+String BluFi::_auth_curr_user;              ///  当前连接的用户KEY
 
 /**
  * @fn void setAuthKey(String)
@@ -218,6 +216,11 @@ bool BluFi::isAuthPassed() {
     return false;
 }
 
+/**
+ * 确认当前连接的用户或KEY认证是通过的
+ *
+ * @return true 通过/false 不通过
+ */
 bool BluFi::isKeyAuthPassed()
 {
 #if ONLY_USE_BLUETOOTH

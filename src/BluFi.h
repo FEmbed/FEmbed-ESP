@@ -37,14 +37,28 @@ typedef void (*blufi_custom_data_recv_cb_t)(uint8_t *data, uint32_t data_len);
 typedef void (*blufi_custom_wifi_mode_chg_cb_t)();
 typedef void (*blufi_custom_sta_conn_cb_t)();
 struct blufi_security_t;
+
+/**
+ * @brief BluFi object used as a global static
+ */
 class BluFi {
 public:
     BluFi();
     virtual ~BluFi();
 
+    /**
+     * @brief 初始化BluFi服务
+     * @param deviceName
+     */
     static void init(String deviceName);
+
+    /**
+     * @brief 关闭BluFi服务
+     */
     static void deinit();
-    // Update for same auth/pin method.
+
+    /// 认证相关的函数
+    /// Update for same auth/pin method.
     static void setAuthUserOrPIN(String val);
     static void setCurrentAuth(String val);
     static String getCurrentAuth();
@@ -56,14 +70,38 @@ public:
     static bool isAuthPassed();
     static bool isKeyAuthPassed();
 
+    /**
+     * @brief 发送自定义数据
+     * @param data 自定义数据
+     * @param data_len 自定义数据长度
+     * @return 返回是否发送成功
+     */
     static bool sendCustomData(uint8_t *data, uint32_t data_len);
-    // Handle custom data.
+    /**
+     * @brief 自定义数据接收回调
+     * @param cb 回调对象
+     */
     static void setCustomRecvHandle(blufi_custom_data_recv_cb_t cb);
+    /**
+     * @brief 自定义连接回调
+     * @param cb 回调对象
+     */
     static void setCustomConnHandle(blufi_custom_sta_conn_cb_t cb);
     static void setCustomModeChgHandle(blufi_custom_wifi_mode_chg_cb_t cb);
 
-    // Custom WiFi callback.
+    /**
+     * @brief Custom WiFi callback.
+     * @param event_base WiFi event base object
+     * @param event_id event id for current base
+     * @param event_data event data for current id
+     * @return process success or not
+     */
     static esp_err_t handleWiFiEvent(esp_event_base_t event_base, int32_t event_id, void* event_data);
+    /**
+     * @brief Custom WiFi scan callback
+     * @param count WiFi scan result count
+     * @param result result objects
+     */
     static void handleScanDone(uint16_t count, void *result);
 
     // Custom defined BLE Event.
@@ -76,8 +114,8 @@ public:
     static int encryptFunc(uint8_t iv8, uint8_t *crypt_data, int cyprt_len);
     static int decryptFunc(uint8_t iv8, uint8_t *crypt_data, int crypt_len);
     static uint16_t checksumFunc(uint8_t iv8, uint8_t *data, int len);
-private:
 
+private:
     static int securityInit(void);
     static void securityDeinit(void);
 
