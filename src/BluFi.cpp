@@ -117,9 +117,96 @@ static esp_blufi_callbacks_t blufi_callbacks = {
     .checksum_func = BluFi::checksumFunc,
 };
 
+class SecurityCallback : public BLESecurityCallbacks {
+
+    uint32_t onPassKeyRequest() {
+        return 0;
+    }
+
+    void onPassKeyNotify(uint32_t pass_key) {}
+
+    bool onConfirmPIN(uint32_t pass_key) {
+        vTaskDelay(5000);
+        return true;
+    }
+
+    bool onSecurityRequest() {
+        return true;
+    }
+
+    void onAuthenticationComplete(esp_ble_auth_cmpl_t cmpl) {
+        if (cmpl.success) {
+            log_d("   - SecurityCallback - Authentication Success");
+        } else {
+            log_d("   - SecurityCallback - Authentication Failure*");
+        }
+    }
+};
+
+static void __attribute__((unused)) remove_all_bonded_devices(void)
+{
+    int dev_num = esp_ble_get_bond_device_num();
+
+    esp_ble_bond_dev_t *dev_list = (esp_ble_bond_dev_t *)malloc(sizeof(esp_ble_bond_dev_t) * dev_num);
+    esp_ble_get_bond_device_list(&dev_num, dev_list);
+    for (int i = 0; i < dev_num; i++) {
+        esp_ble_remove_bond_device(dev_list[i].bd_addr);
+    }
+
+    free(dev_list);
+}
+
+void BluFi::HIDInit()
+{
+    BLEServer *pServer = BLEDevice::createServer();
+    /*
+        * Instantiate hid device
+    */
+    hid.reset(new BLEHIDDevice(pServer));
+
+    input.reset(hid->inputReport(1));
+    output.reset(hid->outputReport(1));
+    hid->manufacturer()->setValue("ESP");
+    /*
+     * Set pnp parameters (MANDATORY)
+     * https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.characteristic.pnp_id.xml
+     */
+    hid->pnp(0x02, 0x0810, 0xe501, 0x0106);
+    /*
+     * Set hid informations (MANDATORY)
+     * https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.characteristic.hid_information.xml
+     */
+    hid->hidInfo(0x00,0x01);
+
+    static const uint8_t simple_keyboard[] = {
+            0x05, 0x01,     /* USAGE_PAGE (Generic Desktop) */
+            0x09, 0x06,     /* USAGE (Keyboard) */
+            0xa1, 0x01,     /* COLLECTION (Application) */
+            0x05, 0x07,   /*   USAGE_PAGE (Keyboard) */
+            0x85, 0x01,    /*   REPORT_ID (1) */
+            0x05, 0x07,   /*   USAGE_PAGE (Keyboard) */
+            0x19, 0x00,   /*   USAGE_MINIMUM (Reserved (no event indicated)) */
+            0x29, 0x65,   /*   USAGE_MAXIMUM (Keyboard Application) */
+            0x15, 0x00,   /*   LOGICAL_MINIMUM (0) */
+            0x25, 0x65,   /*   LOGICAL_MAXIMUM (101) */
+            0x95, 0x06,   /*   REPORT_COUNT (6) */
+            0x75, 0x08,   /*   REPORT_SIZE (8) */
+            0x81, 0x00,   /*   INPUT (Data,Ary,Abs) */
+            0xc0
+    };
+    hid->reportMap((uint8_t*)simple_keyboard, sizeof(simple_keyboard));
+    hid->startServices();
+}
+
 void BluFi::init(String deviceName) {
     esp_err_t ret;
     BLEDevice::init(deviceName.c_str());
+    BLEDevice::setSecurityCallbacks(new SecurityCallback());
+
+    HIDInit();
+
+    BLESecurity *pSecurity = new BLESecurity();
+    pSecurity->setAuthenticationMode(ESP_LE_AUTH_BOND);
 
     /// Add BluFi handler.
     BLEDevice::setCustomGapHandler(BluFi::handleBLEEvent);
@@ -150,6 +237,9 @@ String BluFi::_auth_key;                    ///  设备中存储的认证KEY，�
 String BluFi::_auth_pin;                    ///  设备中存储的认证PIN，一般用户存储的PIN码
 String BluFi::_auth_user_or_pin;            ///  当前通过认证的信息，可能是用户KEY，或PIN值
 String BluFi::_auth_curr_user;              ///  当前连接的用户KEY
+std::shared_ptr<BLEHIDDevice> BluFi::hid;
+std::shared_ptr<BLECharacteristic> BluFi::input;
+std::shared_ptr<BLECharacteristic> BluFi::output;
 
 /**
  * @fn void setAuthKey(String)
@@ -423,6 +513,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
         log_i("BLUFI init finish");
         BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
         pAdvertising->addServiceUUID(_blufi_service_uuid);
+        //pAdvertising->setAppearance(HID_CARD_READER);    // <-- optional
         pAdvertising->setScanResponse(false);
         pAdvertising->setMinPreferred(0x0006);
         pAdvertising->setMaxPreferred(0x0010);
@@ -450,6 +541,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
     case ESP_BLUFI_EVENT_BLE_DISCONNECT:
         log_d("BLUFI ble disconnect");
         _ble_is_connected = false;
+        //remove_all_bonded_devices();
         BluFi::securityDeinit();
         BLEDevice::startAdvertising();
         break;
@@ -637,7 +729,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
 #define SEC_TYPE_DH_PUBLIC 0x04
 
 extern "C" void btc_blufi_report_error(esp_blufi_error_state_t state);
-static int myrand(void *rng_state, unsigned char *output, size_t len) {
+static int f_rng(void *rng_state, unsigned char *output, size_t len) {
     esp_fill_random(output, len);
     return (0);
 }
@@ -681,7 +773,8 @@ void BluFi::negotiateDataHandler(uint8_t *data, int len, uint8_t **output_data, 
         }
         free(_blufi_sec->dh_param);
         _blufi_sec->dh_param = NULL;
-        ret = mbedtls_dhm_make_public(&_blufi_sec->dhm, (int)mbedtls_mpi_size(&_blufi_sec->dhm.P), _blufi_sec->self_public_key, _blufi_sec->dhm.len, myrand, NULL);
+        ret = mbedtls_dhm_make_public(&_blufi_sec->dhm, (int) mbedtls_mpi_size(&_blufi_sec->dhm.P),
+                                      _blufi_sec->self_public_key, _blufi_sec->dhm.len, f_rng, NULL);
         if (ret) {
             log_e("%s make public failed %d", __func__, ret);
             btc_blufi_report_error(ESP_BLUFI_MAKE_PUBLIC_ERROR);
