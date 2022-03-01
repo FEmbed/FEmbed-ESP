@@ -1,0 +1,7 @@
+menu "FEmbed ESP Library Configuration"
+
+config FEMBED_BLUFI_BOND_ENABLE
+    bool "Enable BluFi with bond and HID function."
+    default 0
+
+endmenu

@@ -171,7 +171,7 @@ void BluFi::HIDInit()
      * Set pnp parameters (MANDATORY)
      * https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.characteristic.pnp_id.xml
      */
-    hid->pnp(0x02, 0x0810, 0xe501, 0x0106);
+    hid->pnp(0x02, 0x0005, 0x0001, 0x0100);
     /*
      * Set hid informations (MANDATORY)
      * https://www.bluetooth.com/specifications/gatt/viewer?attributeXmlFile=org.bluetooth.characteristic.hid_information.xml
@@ -203,10 +203,12 @@ void BluFi::init(String deviceName) {
     BLEDevice::init(deviceName.c_str());
     BLEDevice::setSecurityCallbacks(new SecurityCallback());
 
+#if CONFIG_FEMBED_BLUFI_BOND_ENABLE
     HIDInit();
 
     BLESecurity *pSecurity = new BLESecurity();
     pSecurity->setAuthenticationMode(ESP_LE_AUTH_BOND);
+#endif
 
     /// Add BluFi handler.
     BLEDevice::setCustomGapHandler(BluFi::handleBLEEvent);
