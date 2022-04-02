@@ -692,8 +692,8 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
     }
 #endif
     case ESP_BLUFI_EVENT_RECV_CUSTOM_DATA:
-        // log_v("Recv Custom Data %d", param->custom_data.data_len);
-        // esp_log_buffer_hex("Custom Data", param->custom_data.data, param->custom_data.data_len);
+        log_i("Recv Custom Data %d", param->custom_data.data_len);
+        esp_log_buffer_hex("Custom Data", param->custom_data.data, param->custom_data.data_len);
         if (_custom_data_recv_cb != NULL)
             _custom_data_recv_cb(param->custom_data.data, param->custom_data.data_len);
         break;
