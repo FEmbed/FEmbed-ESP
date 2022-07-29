@@ -60,7 +60,7 @@ public:
     /// 认证相关的函数
     /// Update for same auth/pin method.
     static void setAuthUserOrPIN(String val);
-    static void setCurrentAuth(String val);
+    __attribute__((unused)) static void setCurrentAuth(String val);
     static String getCurrentAuth();
     static String getAuth();
     static String getPIN();

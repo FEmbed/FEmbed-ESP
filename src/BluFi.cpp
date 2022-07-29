@@ -59,7 +59,7 @@ struct blufi_security_t {
 //first uuid, 16bit, [2],[3] ff ff is the value
 #define _blufi_service_uuid "0000ffff-0000-1000-8000-00805f9b34fb"
 
-blufi_security_t *BluFi::_blufi_sec = NULL;
+blufi_security_t *BluFi::_blufi_sec = nullptr;
 
 uint8_t BluFi::_server_if = 0;
 uint16_t BluFi::_conn_id = 0;
@@ -81,9 +81,9 @@ wifi_config_t BluFi::_ap_config = {
     {{0}},
 };
 
-blufi_custom_data_recv_cb_t BluFi::_custom_data_recv_cb = NULL;
-blufi_custom_sta_conn_cb_t BluFi::_custom_sta_conn_cb = NULL;
-blufi_custom_wifi_mode_chg_cb_t BluFi::_custom_wifi_mode_chg_cb = NULL;
+blufi_custom_data_recv_cb_t BluFi::_custom_data_recv_cb = nullptr;
+blufi_custom_sta_conn_cb_t BluFi::_custom_sta_conn_cb = nullptr;
+blufi_custom_wifi_mode_chg_cb_t BluFi::_custom_wifi_mode_chg_cb = nullptr;
 /**
  * @fn  BluFi()
  *
@@ -144,7 +144,7 @@ void BluFi::deinit() {
 
 /**
  * @brief 用于认证的相关变量
- * 
+ *
  */
 String BluFi::_auth_key;                    ///  设备中存储的认证KEY，一般用用户的idtoken
 String BluFi::_auth_pin;                    ///  设备中存储的认证PIN，一般用户存储的PIN码
@@ -154,7 +154,7 @@ String BluFi::_auth_curr_user;              ///  当前连接的用户KEY
 /**
  * @fn void setAuthKey(String)
  *
- * Set BluFi auth key, if key is null or empty, no auth.
+ * Set BluFi auth key, if key is nullptr or empty, no auth.
  *
  * @param key auth key value.
  */
@@ -268,8 +268,8 @@ void BluFi::setCustomModeChgHandle(blufi_custom_wifi_mode_chg_cb_t cb) {
 
 
 int BluFi::securityInit(void) {
-    _blufi_sec = (blufi_security_t *)malloc(sizeof(blufi_security_t));
-    if (_blufi_sec == NULL) {
+    _blufi_sec = static_cast<blufi_security_t *>(malloc(sizeof(blufi_security_t)));
+    if (_blufi_sec == nullptr) {
         return ESP_FAIL;
     }
 
@@ -283,12 +283,12 @@ int BluFi::securityInit(void) {
 }
 
 void BluFi::securityDeinit(void) {
-    if (_blufi_sec == NULL) {
+    if (_blufi_sec == nullptr) {
         return;
     }
     if (_blufi_sec->dh_param) {
         free(_blufi_sec->dh_param);
-        _blufi_sec->dh_param = NULL;
+        _blufi_sec->dh_param = nullptr;
     }
     mbedtls_dhm_free(&_blufi_sec->dhm);
     mbedtls_aes_free(&_blufi_sec->aes);
@@ -296,7 +296,7 @@ void BluFi::securityDeinit(void) {
     memset(_blufi_sec, 0x0, sizeof(blufi_security_t));
 
     free(_blufi_sec);
-    _blufi_sec = NULL;
+    _blufi_sec = nullptr;
 }
 
 esp_err_t BluFi::handleWiFiEvent(
@@ -316,7 +316,7 @@ esp_err_t BluFi::handleWiFiEvent(
             _gl_sta_ssid_len = event->ssid_len;
             break;
         case WIFI_EVENT_STA_DISCONNECTED:
-            /* This is a workaround as ESP32 WiFi libs don't currently
+            /* This is a workaround as ESP32 Wi-Fi libs don't currently
                    auto-reassociate. */
             _gl_sta_connected = false;
             memset(_gl_sta_ssid, 0, 32);
@@ -329,9 +329,9 @@ esp_err_t BluFi::handleWiFiEvent(
             /* TODO: get config or information of softap, then set to report extra_info */
             if (_ble_is_connected == true) {
                 if (_gl_sta_connected) {
-                    esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_SUCCESS, 0, NULL);
+                    esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_SUCCESS, 0, nullptr);
                 } else {
-                    esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_FAIL, 0, NULL);
+                    esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_FAIL, 0, nullptr);
                 }
             } else {
                 log_i("BLUFI is not connected at ap start");
@@ -365,13 +365,13 @@ esp_err_t BluFi::handleWiFiEvent(
             } else {
                 log_i("BLUFI BLE is not connected at got ip.");
             }
-            ///< bind ok with WiFi connected.
+            ///< bind ok with Wi-Fi connected.
             if (isKeyAuthPassed()
                 && _auth_curr_user.length() > 0) {
                 setAuthKey(_auth_curr_user);
                 refreshPIN();
             }
-            if (_custom_sta_conn_cb != NULL)
+            if (_custom_sta_conn_cb != nullptr)
                 _custom_sta_conn_cb();
 
             wifi_config_t current_conf;
@@ -398,7 +398,7 @@ void BluFi::handleScanDone(uint16_t apCount, void *result) {
             if (ap_list) {
                 free(ap_list);
             }
-            log_e("malloc error, blufi_ap_list is NULL");
+            log_e("malloc error, blufi_ap_list is nullptr");
             return;
         }
         for (int i = 0; i < apCount; ++i) {
@@ -477,7 +477,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
     case ESP_BLUFI_EVENT_SET_WIFI_OPMODE:
         if (isAuthPassed()) {
             log_i("BLUFI Set WIFI opmode %d", param->wifi_mode.op_mode);
-            if(_custom_wifi_mode_chg_cb != NULL)
+            if(_custom_wifi_mode_chg_cb != nullptr)
             {
                 _custom_wifi_mode_chg_cb();
             }
@@ -523,7 +523,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
             info.sta_ssid_len = _gl_sta_ssid_len;
             esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_SUCCESS, 0, &info);
         } else {
-            esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_FAIL, 0, NULL);
+            esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_FAIL, 0, nullptr);
         }
         log_i("BLUFI get wifi status from STA");
         break;
@@ -619,7 +619,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
     case ESP_BLUFI_EVENT_RECV_CUSTOM_DATA:
         // log_v("Recv Custom Data %d", param->custom_data.data_len);
         // esp_log_buffer_hex("Custom Data", param->custom_data.data, param->custom_data.data_len);
-        if (_custom_data_recv_cb != NULL)
+        if (_custom_data_recv_cb != nullptr)
             _custom_data_recv_cb(param->custom_data.data, param->custom_data.data_len);
         break;
     case ESP_BLUFI_EVENT_RECV_USERNAME:
@@ -664,7 +664,7 @@ void BluFi::negotiateDataHandler(uint8_t *data, int len, uint8_t **output_data, 
     int ret;
     uint8_t type = data[0];
 
-    if (_blufi_sec == NULL) {
+    if (_blufi_sec == nullptr) {
         log_e("BLUFI Security is not initialized");
         btc_blufi_report_error(ESP_BLUFI_INIT_SECURITY_ERROR);
         return;
@@ -675,18 +675,18 @@ void BluFi::negotiateDataHandler(uint8_t *data, int len, uint8_t **output_data, 
         _blufi_sec->dh_param_len = ((data[1] << 8) | data[2]);
         if (_blufi_sec->dh_param) {
             free(_blufi_sec->dh_param);
-            _blufi_sec->dh_param = NULL;
+            _blufi_sec->dh_param = nullptr;
         }
         _blufi_sec->dh_param = (uint8_t *)malloc(_blufi_sec->dh_param_len);
-        if (_blufi_sec->dh_param == NULL) {
+        if (_blufi_sec->dh_param == nullptr) {
             btc_blufi_report_error(ESP_BLUFI_DH_MALLOC_ERROR);
             log_e("%s, malloc failed", __func__);
             return;
         }
         break;
     case SEC_TYPE_DH_PARAM_DATA: {
-        if (_blufi_sec->dh_param == NULL) {
-            log_e("%s, blufi_sec->dh_param == NULL", __func__);
+        if (_blufi_sec->dh_param == nullptr) {
+            log_e("%s, blufi_sec->dh_param == nullptr", __func__);
             btc_blufi_report_error(ESP_BLUFI_DH_PARAM_ERROR);
             return;
         }
@@ -699,8 +699,8 @@ void BluFi::negotiateDataHandler(uint8_t *data, int len, uint8_t **output_data, 
             return;
         }
         free(_blufi_sec->dh_param);
-        _blufi_sec->dh_param = NULL;
-        ret = mbedtls_dhm_make_public(&_blufi_sec->dhm, (int)mbedtls_mpi_size(&_blufi_sec->dhm.P), _blufi_sec->self_public_key, _blufi_sec->dhm.len, myrand, NULL);
+        _blufi_sec->dh_param = nullptr;
+        ret = mbedtls_dhm_make_public(&_blufi_sec->dhm, (int)mbedtls_mpi_size(&_blufi_sec->dhm.P), _blufi_sec->self_public_key, _blufi_sec->dhm.len, myrand, nullptr);
         if (ret) {
             log_e("%s make public failed %d", __func__, ret);
             btc_blufi_report_error(ESP_BLUFI_MAKE_PUBLIC_ERROR);
@@ -711,7 +711,7 @@ void BluFi::negotiateDataHandler(uint8_t *data, int len, uint8_t **output_data, 
                                 _blufi_sec->share_key,
                                 SHARE_KEY_BIT_LEN,
                                 &_blufi_sec->share_len,
-                                NULL, NULL);
+                                nullptr, nullptr);
 
         mbedtls_md5(_blufi_sec->share_key, _blufi_sec->share_len, _blufi_sec->psk);
 
