@@ -345,10 +345,21 @@ esp_err_t BluFi::handleWiFiEvent(
             esp_blufi_extra_info_t info;
             esp_wifi_get_mode(&mode);
             memset(&info, 0, sizeof(esp_blufi_extra_info_t));
-            memcpy(info.sta_bssid, _gl_sta_bssid, 6);
-            info.sta_bssid_set = true;
-            info.sta_ssid = _gl_sta_ssid;
-            info.sta_ssid_len = _gl_sta_ssid_len;
+            if(esp_wifi_get_config(WIFI_IF_STA, &_sta_config) == ESP_OK)
+            {
+                memcpy(info.sta_bssid, _sta_config.sta.bssid, 6);
+                info.sta_bssid_set = true;
+                info.sta_ssid = _sta_config.sta.ssid;
+                info.sta_ssid_len = strlen(reinterpret_cast<const char *>(_sta_config.sta.ssid));
+                strncpy(reinterpret_cast<char *>(_gl_sta_ssid),
+                        reinterpret_cast<const char *>(info.sta_ssid), 32);
+                _gl_sta_ssid_len = info.sta_ssid_len;
+            } else {
+                memcpy(info.sta_bssid, _gl_sta_bssid, 6);
+                info.sta_bssid_set = true;
+                info.sta_ssid = _gl_sta_ssid;
+                info.sta_ssid_len = _gl_sta_ssid_len;
+            }
             if (_ble_is_connected == true) {
                 esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_SUCCESS, 0, &info);
             } else {
@@ -362,6 +373,14 @@ esp_err_t BluFi::handleWiFiEvent(
             }
             if (_custom_sta_conn_cb != NULL)
                 _custom_sta_conn_cb();
+
+            wifi_config_t current_conf;
+            if(esp_wifi_get_config(WIFI_IF_STA, &current_conf) != ESP_OK)
+            {
+                log_e("config get failed");
+                return WL_CONNECT_FAILED;
+            }
+            _gl_sta_connected = true;
             break;
         }
         default:
@@ -506,7 +525,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
         } else {
             esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_FAIL, 0, NULL);
         }
-        log_i("BLUFI get wifi status from AP");
+        log_i("BLUFI get wifi status from STA");
         break;
     }
 #endif
