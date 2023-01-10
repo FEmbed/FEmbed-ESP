@@ -56,6 +56,12 @@ struct blufi_security_t {
     mbedtls_aes_context aes;
 };
 
+static int myrand( void *rng_state, unsigned char *output, size_t len )
+{
+    esp_fill_random(output, len);
+    return( 0 );
+}
+
 //first uuid, 16bit, [2],[3] ff ff is the value
 #define _blufi_service_uuid "0000ffff-0000-1000-8000-00805f9b34fb"
 
@@ -775,8 +781,11 @@ void BluFi::negotiateDataHandler(uint8_t *data, int len, uint8_t **output_data, 
         }
         free(_blufi_sec->dh_param);
         _blufi_sec->dh_param = NULL;
-        ret = mbedtls_dhm_make_public(&_blufi_sec->dhm, (int) mbedtls_mpi_size(&_blufi_sec->dhm.P),
-                                      _blufi_sec->self_public_key, _blufi_sec->dhm.len, f_rng, NULL);
+        const int dhm_len = mbedtls_dhm_get_len(&_blufi_sec->dhm);
+        ret = mbedtls_dhm_make_public(&_blufi_sec->dhm,
+                                      dhm_len,
+                                      _blufi_sec->self_public_key,
+                                      dhm_len, myrand, NULL);
         if (ret) {
             log_e("%s make public failed %d", __func__, ret);
             btc_blufi_report_error(ESP_BLUFI_MAKE_PUBLIC_ERROR);
@@ -795,7 +804,7 @@ void BluFi::negotiateDataHandler(uint8_t *data, int len, uint8_t **output_data, 
 
         /* alloc output data */
         *output_data = &_blufi_sec->self_public_key[0];
-        *output_len = _blufi_sec->dhm.len;
+        *output_len = dhm_len;
         *need_free = false;
 
     } break;

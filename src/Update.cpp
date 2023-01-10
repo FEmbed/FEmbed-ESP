@@ -1,8 +1,9 @@
+#include <spi_flash_mmap.h>
 #include "Update.h"
 #include "Arduino.h"
-#include "esp_spi_flash.h"
 #include "esp_ota_ops.h"
 #include "esp_image_format.h"
+#include "esp_flash.h"
 
 static const char *_err2str(uint8_t _error)
 {
@@ -186,7 +187,7 @@ bool UpdateClass::begin(size_t size, int command, const char *label)
     else if (size > _partition->size)
     {
         _error = UPDATE_ERROR_SIZE;
-        log_e("too large %u > %u", size, _partition->size);
+        log_e("too large %u > %lu", size, _partition->size);
         return false;
     }
 
@@ -249,14 +250,14 @@ bool UpdateClass::_writeBuffer()
     if (err != ESP_OK)
     {
         _abort(UPDATE_ERROR_ERASE);
-        log_e("esp_partition_erase_range failed(%d) from 0x%08x at %d.", err, _partition->address, _progress);
+        log_e("esp_partition_erase_range failed(%d) from 0x%08lx at %lu.", err, _partition->address, _progress);
         return false;
     }
     err = esp_partition_write(_partition, _progress + skip, (uint32_t *)_buffer + skip / sizeof(uint32_t), _bufferLen - skip);
     if (err != ESP_OK)
     {
         _abort(UPDATE_ERROR_WRITE);
-        log_e("esp_partition_write failed(%d) from 0x%08x at %d, %d, 0x%08x.", err, _partition->address, _progress, skip, (uint32_t)_buffer);
+        log_e("esp_partition_write failed(%d) from 0x%08lx at %lu, %d, 0x%08lx.", err, _partition->address, _progress, skip, (uint32_t)_buffer);
         return false;
     }
     //restore magic or md5 will fail

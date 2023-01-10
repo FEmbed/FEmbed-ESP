@@ -20,7 +20,8 @@
 
 typedef void (*HttpEventCb)(HttpEvent_t*);
 
-static esp_http_client_config_t config; 
+static esp_http_client_config_t config;
+static esp_https_ota_config_t ota_confg= { &config };
 static HttpEventCb cb;
 static EventGroupHandle_t ota_status = NULL;//check for ota status
 static EventBits_t set_bit;
@@ -42,7 +43,7 @@ void https_ota_task(void *param)
         xEventGroupSetBits(ota_status, OTA_UPDATING_BIT);
         xEventGroupClearBits(ota_status, OTA_IDLE_BIT);
     }
-    esp_err_t ret = esp_https_ota((const esp_http_client_config_t *)param);
+    esp_err_t ret = esp_https_ota((const esp_https_ota_config_t *)param);
     if(ret == ESP_OK) {
         if(ota_status) {
             xEventGroupClearBits(ota_status, OTA_UPDATING_BIT);
@@ -85,7 +86,7 @@ void HttpsOTAUpdateClass::onHttpEvent(HttpEventCb cbEvent)
 void HttpsOTAUpdateClass::begin(const char *url, const char *cert_pem, bool skip_cert_common_name_check)
 {
     config.url = url;
-    config.cert_pem = cert_pem; 
+    config.cert_pem = cert_pem;
     config.skip_cert_common_name_check = skip_cert_common_name_check;
     config.event_handler = http_event_handler;
 
@@ -97,7 +98,7 @@ void HttpsOTAUpdateClass::begin(const char *url, const char *cert_pem, bool skip
         xEventGroupSetBits(ota_status, OTA_IDLE_BIT);
     }
  
-    if (xTaskCreate(&https_ota_task, "https_ota_task", OTA_TASK_STACK_SIZE, &config, 5, NULL) != pdPASS) {
+    if (xTaskCreate(&https_ota_task, "https_ota_task", OTA_TASK_STACK_SIZE, &ota_confg, 5, NULL) != pdPASS) {
         log_e("Couldn't create ota task\n"); 
     }
 }
