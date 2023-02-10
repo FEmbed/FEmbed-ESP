@@ -17,7 +17,7 @@
  *
  */
 #include <BluFi.h>
-#if defined(CONFIG_BT_ENABLED)
+#if defined(CONFIG_BT_BLUEDROID_ENABLED)
 
 #include <BLEDevice.h>
 #include <WiFi.h>

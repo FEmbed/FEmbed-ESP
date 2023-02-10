@@ -21,7 +21,7 @@
 #define LIB_FEMBED_ESP_SRC_BLUFI_H_
 #include "sdkconfig.h"
 
-#if defined(CONFIG_BT_ENABLED)
+#if defined(CONFIG_BT_BLUEDROID_ENABLED)
 #include <osTask.h>
 #include <BLEHIDDevice.h>
 #include "WString.h"
