@@ -69,6 +69,7 @@ public:
     static String refreshPIN();
     static bool isAuthPassed();
     static bool isKeyAuthPassed();
+    static bool isBleConnected();
 
     /**
      * @brief 发送自定义数据
