@@ -372,11 +372,11 @@ esp_err_t BluFi::handleWiFiEvent(
                 log_i("BLUFI BLE is not connected at got ip.");
             }
             ///< bind ok with Wi-Fi connected.
-            if (isKeyAuthPassed()
-                && _auth_curr_user.length() > 0) {
-                setAuthKey(_auth_curr_user);
-                refreshPIN();
-            }
+            // if (isKeyAuthPassed()
+            //     && _auth_curr_user.length() > 0) {
+            //     setAuthKey(_auth_curr_user);
+            //     refreshPIN();
+            // }
             if (_custom_sta_conn_cb != nullptr)
                 _custom_sta_conn_cb();
 
