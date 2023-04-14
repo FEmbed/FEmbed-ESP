@@ -8,7 +8,6 @@ set(srcs    "src/BluFi.cpp"
             "src/ArduinoNvs.cpp"
             "src/HttpsOTAUpdate.cpp"
             "src/Update.cpp"
-            "src/mDNS.cpp"
             "src/hal-misc.c"
             )
 set(include "src" 
@@ -16,5 +15,5 @@ set(include "src"
 
 idf_component_register(SRCS "${srcs}"
                        INCLUDE_DIRS ${include}
-                       REQUIRES "FEmbed-Arduino FEmbed-OS FEmbed-WiFi FEmbed-BLE nvs_flash wifi_provisioning esp_http_client esp_https_ota app_update mdns"
+                       REQUIRES "FEmbed-Arduino FEmbed-OS FEmbed-WiFi FEmbed-BLE nvs_flash wifi_provisioning esp_http_client esp_https_ota app_update"
                        PRIV_REQUIRES ${priv_requires})
