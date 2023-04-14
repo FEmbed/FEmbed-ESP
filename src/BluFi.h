@@ -21,8 +21,10 @@
 #define LIB_FEMBED_ESP_SRC_BLUFI_H_
 #include "sdkconfig.h"
 
-#if defined(CONFIG_BT_ENABLED)
+#if defined(CONFIG_BT_BLUEDROID_ENABLED)
 #include <osTask.h>
+#include <BLEHIDDevice.h>
+#include "WString.h"
 
 extern "C"
 {
@@ -30,7 +32,7 @@ extern "C"
 #include "esp_gap_ble_api.h"
 #include "esp_wifi.h"
 }
-#include "WString.h"
+
 namespace FEmbed {
 
 typedef void (*blufi_custom_data_recv_cb_t)(uint8_t *data, uint32_t data_len);
@@ -119,6 +121,14 @@ public:
 private:
     static int securityInit(void);
     static void securityDeinit(void);
+    static void HIDInit();
+
+    /**
+     * @brief Mix HID Device with BluFi for fast access
+     */
+    static std::shared_ptr<BLEHIDDevice> hid;
+    static std::shared_ptr<BLECharacteristic> input;
+    static std::shared_ptr<BLECharacteristic> output;
 
     static blufi_custom_data_recv_cb_t _custom_data_recv_cb;
     static blufi_custom_sta_conn_cb_t _custom_sta_conn_cb;
@@ -142,6 +152,7 @@ private:
     static int _gl_sta_ssid_len;
     static wifi_config_t _sta_config;
     static wifi_config_t _ap_config;
+
 };
 } /* namespace FEmbed */
 #endif

@@ -248,7 +248,7 @@ bool ArduinoNvs::setBlob(String key, uint8_t *blob, size_t length,
 {
     if (!_nvs_valid)
         return false;
-    log_d("ArduinoNvs::setObjct(): set obj addr = [0x%X], length = [%d]\n",
+    log_d("ArduinoNvs::setObjct(): set obj addr = [0x%lX], length = [%d]\n",
           (int32_t)blob, length);
     if (length == 0)
         return false;
