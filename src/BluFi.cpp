@@ -537,7 +537,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
 #endif
     case ESP_BLUFI_EVENT_RECV_SLAVE_DISCONNECT_BLE:
         log_i("blufi close a gatt connection");
-        esp_blufi_disconnect();
+        // esp_blufi_disconnect();
         break;
     case ESP_BLUFI_EVENT_DEAUTHENTICATE_STA:
         /* TODO */
