@@ -26,7 +26,6 @@
 #include "driver/temp_sensor.h"
 #elif CONFIG_IDF_TARGET_ESP32S3
 #include "esp32s3/rom/rtc.h"
-#include "driver/temp_sensor.h"
 #elif CONFIG_IDF_TARGET_ESP32C3
 #include "esp32c3/rom/rtc.h"
 #include "driver/temp_sensor.h"
