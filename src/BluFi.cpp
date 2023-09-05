@@ -334,7 +334,10 @@ bool BluFi::isKeyAuthPassed()
 #endif
     return false;
 }
-
+bool BluFi::isBleConnected()
+{
+    return _ble_is_connected;
+}
 /**
  * @fn bool sendCustomData(uint8_t*, uint32_t)
  *
