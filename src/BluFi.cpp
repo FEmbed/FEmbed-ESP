@@ -717,7 +717,7 @@ void BluFi::negotiateDataHandler(uint8_t *data, int len, uint8_t **output_data, 
                                 _blufi_sec->share_key,
                                 SHARE_KEY_BIT_LEN,
                                 &_blufi_sec->share_len,
-                                nullptr, nullptr);
+                                myrand, nullptr);
 
         mbedtls_md5(_blufi_sec->share_key, _blufi_sec->share_len, _blufi_sec->psk);
 
