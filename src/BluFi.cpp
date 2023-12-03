@@ -449,7 +449,7 @@ bool BluFi::isBleConnected()
  * @return send data succussful or not.
  */
 bool BluFi::sendCustomData(uint8_t *data, uint32_t data_len) {
-    if (_ble_is_connected == true) {
+    if (_ble_is_connected) {
         return esp_blufi_send_custom_data(data, data_len) == ESP_OK;
     }
     return false;
@@ -528,7 +528,7 @@ esp_err_t BluFi::handleWiFiEvent(
             esp_wifi_get_mode(&mode);
 
             /* TODO: get config or information of softap, then set to report extra_info */
-            if (_ble_is_connected == true) {
+            if (_ble_is_connected) {
                 if (_gl_sta_connected) {
                     esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_SUCCESS, 0, NULL);
                 } else {
@@ -575,9 +575,9 @@ esp_err_t BluFi::handleWiFiEvent(
 void BluFi::handleScanDone(uint16_t apCount, void *result) {
     wifi_ap_record_t *ap_list = (wifi_ap_record_t *)result;
     if (apCount > 0) {
-        esp_blufi_ap_record_t *blufi_ap_list = (esp_blufi_ap_record_t *)heap_caps_calloc(apCount ,
-                                                                                         sizeof(esp_blufi_ap_record_t),
-                                                                                         MALLOC_CAP_SPIRAM);
+        auto *blufi_ap_list = (esp_blufi_ap_record_t *)heap_caps_calloc(apCount ,
+                                                                      sizeof(esp_blufi_ap_record_t),
+                                                                      MALLOC_CAP_SPIRAM);
         //esp_blufi_ap_record_t *blufi_ap_list = (esp_blufi_ap_record_t *)malloc(apCount * sizeof(esp_blufi_ap_record_t));
         if (blufi_ap_list) {
             for (int i = 0; i < apCount; ++i) {
@@ -585,7 +585,7 @@ void BluFi::handleScanDone(uint16_t apCount, void *result) {
                 memcpy(blufi_ap_list[i].ssid, ap_list[i].ssid, sizeof(ap_list[i].ssid));
             }
 
-            if (_ble_is_connected == true) {
+            if (_ble_is_connected) {
                 esp_blufi_send_wifi_list(apCount, blufi_ap_list);
             } else {
                 log_i("BLUFI BLE is not connected after scan done.");
@@ -597,9 +597,9 @@ void BluFi::handleScanDone(uint16_t apCount, void *result) {
         }
     }
     else {
-        esp_blufi_ap_record_t *blufi_ap_list = (esp_blufi_ap_record_t *)heap_caps_calloc(1 ,
-                                                                                         sizeof(esp_blufi_ap_record_t),
-                                                                                         MALLOC_CAP_SPIRAM);
+        auto *blufi_ap_list = (esp_blufi_ap_record_t *)heap_caps_calloc(1 ,
+                                                                     sizeof(esp_blufi_ap_record_t),
+                                                                     MALLOC_CAP_SPIRAM);
         blufi_ap_list[0].rssi = 0;
         memset(blufi_ap_list[0].ssid, 0, sizeof(ap_list[0].ssid));
         esp_blufi_send_wifi_list(1, blufi_ap_list);
@@ -692,17 +692,22 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
                 _custom_wifi_mode_chg_cb();
             }
             WiFi->mode(WIFI_MODE_NULL);
-            delay(500);
-            WiFi->mode(param->wifi_mode.op_mode);
+            if(WIFI_MODE_NULL != param->wifi_mode.op_mode) {
+                delay(500);
+                WiFi->mode(param->wifi_mode.op_mode);
+                if ((param->wifi_mode.op_mode == WIFI_MODE_STA) || (param->wifi_mode.op_mode == WIFI_MODE_APSTA)) {
+                    WiFi->reconnect();
+                }
+            }
         }
         break;
     case ESP_BLUFI_EVENT_REQ_CONNECT_TO_AP:
         if (isAuthPassed()) {
             log_i("BLUFI requset wifi connect to AP");
             /*
-                * there is no wifi callback when the device has already connected to this WiFi
-                * so disconnect wifi before connection.
-               */
+             * there is no wifi callback when the device has already connected to this WiFi
+             * so disconnect wifi before connection.
+             */
             delay(100);
             WiFi->reconnect();
         }
