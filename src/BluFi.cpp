@@ -401,9 +401,9 @@ void BluFi::handleScanDone(uint16_t apCount, void *result) {
     if (apCount > 0) {
         esp_blufi_ap_record_t *blufi_ap_list = (esp_blufi_ap_record_t *)malloc(apCount * sizeof(esp_blufi_ap_record_t));
         if (!blufi_ap_list) {
-            if (ap_list) {
-                free(ap_list);
-            }
+            // if (ap_list) {
+            //     free(ap_list);
+            // }
             log_e("malloc error, blufi_ap_list is nullptr");
             return;
         }
