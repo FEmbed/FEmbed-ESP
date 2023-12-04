@@ -21,17 +21,24 @@
 #define LIB_FEMBED_ESP_SRC_BLUFI_H_
 #include "sdkconfig.h"
 
-#if defined(CONFIG_BT_BLUEDROID_ENABLED)
+#if defined(CONFIG_BT_BLUEDROID_ENABLED) || defined(CONFIG_BT_NIMBLE_ENABLED)
 #include <osTask.h>
-#include <BLEHIDDevice.h>
+#include <Service.h>
 #include "WString.h"
-
 extern "C"
 {
-#include "esp_blufi.h"
-#include "esp_gap_ble_api.h"
-#include "esp_wifi.h"
+    #include <esp_blufi.h>
+    #include <esp_wifi.h>
 }
+
+#if defined(CONFIG_BT_BLUEDROID_ENABLED)
+#include <BLEHIDDevice.h>
+#include <BLEAdvertisedDevice.h>
+extern "C"
+{
+    #include "esp_gap_ble_api.h"
+}
+#endif
 
 namespace FEmbed {
 
@@ -43,11 +50,20 @@ struct blufi_security_t;
 /**
  * @brief BluFi object used as a global static
  */
-class BluFi {
+class BluFi :
+//        public BLEAdvertisedDeviceCallbacks ,
+//#ifdef CONFIG_BT_BLE_50_FEATURES_SUPPORTED
+//        public BLEExtAdvertisingCallbacks,
+//#endif
+        FEmbed::Service<BluFi>
+        {
 public:
     BluFi();
     virtual ~BluFi();
-
+#if defined(CONFIG_BT_BLUEDROID_ENABLED)
+    virtual void onResult(BLEAdvertisedDevice advertisedDevice);
+    virtual void onResult(esp_ble_gap_ext_adv_reprot_t report);
+#endif
     /**
      * @brief 初始化BluFi服务
      * @param deviceName
@@ -108,8 +124,10 @@ public:
     static void handleScanDone(uint16_t count, void *result);
 
     // Custom defined BLE Event.
+#if defined(CONFIG_BT_BLUEDROID_ENABLED)
     static void handleBLEEvent(esp_gap_ble_cb_event_t  event,
             esp_ble_gap_cb_param_t* param);
+#endif
 
     // BluFi callbacks
     static void eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param);
@@ -121,6 +139,7 @@ public:
 private:
     static int securityInit(void);
     static void securityDeinit(void);
+#if defined(CONFIG_BT_BLUEDROID_ENABLED)
     static void HIDInit();
 
     /**
@@ -129,7 +148,7 @@ private:
     static std::shared_ptr<BLEHIDDevice> hid;
     static std::shared_ptr<BLECharacteristic> input;
     static std::shared_ptr<BLECharacteristic> output;
-
+#endif
     static blufi_custom_data_recv_cb_t _custom_data_recv_cb;
     static blufi_custom_sta_conn_cb_t _custom_sta_conn_cb;
     static blufi_custom_wifi_mode_chg_cb_t _custom_wifi_mode_chg_cb;
@@ -141,8 +160,8 @@ private:
     static String _auth_curr_user;
 
     static blufi_security_t *_blufi_sec;
-    static uint8_t _server_if;
-    static uint16_t _conn_id;
+    [[maybe_unused]] static uint8_t _server_if;
+    [[maybe_unused]] static uint16_t _conn_id;
 
     /* store the station info for send back to phone */
     static bool _gl_sta_connected;

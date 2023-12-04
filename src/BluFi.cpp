@@ -17,17 +17,31 @@
  *
  */
 #include <BluFi.h>
-#if defined(CONFIG_BT_BLUEDROID_ENABLED)
+#if defined(CONFIG_BT_BLUEDROID_ENABLED) || defined(CONFIG_BT_NIMBLE_ENABLED)
 
 #include <BLEDevice.h>
 #include <WiFi.h>
 #include <Arduino.h>
 
+extern "C"
+{
 #include "mbedtls/aes.h"
 #include "mbedtls/dhm.h"
 #include "mbedtls/md5.h"
 
+#if defined(CONFIG_BT_BLUEDROID_ENABLED)
 #include "esp_bt_defs.h"
+#endif
+
+#if defined(CONFIG_BT_NIMBLE_ENABLED)
+    #include "nimble/nimble_port.h"
+    #include "nimble/nimble_port_freertos.h"
+    #include "services/gap/ble_svc_gap.h"
+    #include "services/gatt/ble_svc_gatt.h"
+    #include "esp_bt.h"
+#endif
+}
+
 #include "esp_crc.h"
 
 #ifdef LOG_TAG
@@ -35,7 +49,7 @@
 #endif
 #define LOG_TAG "BluFi"
 
-extern "C" void esp_blufi_disconnect(void);
+//extern "C" void esp_blufi_disconnect(void);
 
 namespace FEmbed {
 
@@ -56,19 +70,13 @@ struct blufi_security_t {
     mbedtls_aes_context aes;
 };
 
-static int myrand( void *rng_state, unsigned char *output, size_t len )
-{
-    esp_fill_random(output, len);
-    return( 0 );
-}
-
 //first uuid, 16bit, [2],[3] ff ff is the value
 #define _blufi_service_uuid "0000ffff-0000-1000-8000-00805f9b34fb"
 
 blufi_security_t *BluFi::_blufi_sec = NULL;
 
-uint8_t BluFi::_server_if = 0;
-uint16_t BluFi::_conn_id = 0;
+[[maybe_unused]] uint8_t BluFi::_server_if = 0;
+[[maybe_unused]] uint16_t BluFi::_conn_id = 0;
 
 bool BluFi::_gl_sta_connected = false;
 bool BluFi::_ble_is_connected = false;
@@ -123,6 +131,7 @@ static esp_blufi_callbacks_t blufi_callbacks = {
     .checksum_func = BluFi::checksumFunc,
 };
 
+#if defined(CONFIG_BT_BLUEDROID_ENABLED)
 class SecurityCallback : public BLESecurityCallbacks {
 
     uint32_t onPassKeyRequest() {
@@ -188,26 +197,67 @@ void BluFi::HIDInit()
             0x05, 0x01,     /* USAGE_PAGE (Generic Desktop) */
             0x09, 0x06,     /* USAGE (Keyboard) */
             0xa1, 0x01,     /* COLLECTION (Application) */
-            0x05, 0x07,   /*   USAGE_PAGE (Keyboard) */
-            0x85, 0x01,    /*   REPORT_ID (1) */
-            0x05, 0x07,   /*   USAGE_PAGE (Keyboard) */
-            0x19, 0x00,   /*   USAGE_MINIMUM (Reserved (no event indicated)) */
-            0x29, 0x65,   /*   USAGE_MAXIMUM (Keyboard Application) */
-            0x15, 0x00,   /*   LOGICAL_MINIMUM (0) */
-            0x25, 0x65,   /*   LOGICAL_MAXIMUM (101) */
-            0x95, 0x06,   /*   REPORT_COUNT (6) */
-            0x75, 0x08,   /*   REPORT_SIZE (8) */
-            0x81, 0x00,   /*   INPUT (Data,Ary,Abs) */
+            0x05, 0x07,     /*   USAGE_PAGE (Keyboard) */
+            0x85, 0x01,     /*   REPORT_ID (1) */
+            0x05, 0x07,    /*   USAGE_PAGE (Keyboard) */
+            0x19, 0x00,    /*   USAGE_MINIMUM (Reserved (no event indicated)) */
+            0x29, 0x65,    /*   USAGE_MAXIMUM (Keyboard Application) */
+            0x15, 0x00,    /*   LOGICAL_MINIMUM (0) */
+            0x25, 0x65,    /*   LOGICAL_MAXIMUM (101) */
+            0x95, 0x06,    /*   REPORT_COUNT (6) */
+            0x75, 0x08,    /*   REPORT_SIZE (8) */
+            0x81, 0x00,    /*   INPUT (Data,Ary,Abs) */
             0xc0
     };
     hid->reportMap((uint8_t*)simple_keyboard, sizeof(simple_keyboard));
     hid->startServices();
 }
+#endif
+
+#ifdef CONFIG_BT_NIMBLE_ENABLED
+    extern "C" void ble_store_config_init(void);
+    static void blufi_on_reset(int reason)
+    {
+        MODLOG_DFLT(ERROR, "Resetting state; reason=%d\n", reason);
+    }
+
+    static void
+    blufi_on_sync(void)
+    {
+        esp_blufi_profile_init();
+    }
+
+    void bleprph_host_task(void *param)
+    {
+        log_i("BLE Host Task Started");
+        /* This function will return only when nimble_port_stop() is executed */
+        nimble_port_run();
+        nimble_port_freertos_deinit();
+    }
+#endif
 
 void BluFi::init(String deviceName) {
-    esp_err_t ret;
+    esp_err_t err;
+#if defined(CONFIG_BT_BLUEDROID_ENABLED)
     BLEDevice::init(deviceName.c_str());
     BLEDevice::setSecurityCallbacks(new SecurityCallback());
+#endif
+#if defined(CONFIG_BT_NIMBLE_ENABLED)
+    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
+
+    esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+    err = esp_bt_controller_init(&bt_cfg);
+    if (err) {
+        log_e("%s initialize bt controller failed: %s", __func__, esp_err_to_name(err));
+        return;
+    }
+
+    err = esp_bt_controller_enable(ESP_BT_MODE_BLE);
+    if (err) {
+        log_e("%s enable bt controller failed: %s", __func__, esp_err_to_name(err));
+        return;
+    }
+#endif
 
 #if CONFIG_FEMBED_BLUFI_BOND_ENABLE
     HIDInit();
@@ -215,26 +265,73 @@ void BluFi::init(String deviceName) {
     BLESecurity *pSecurity = new BLESecurity();
     pSecurity->setAuthenticationMode(ESP_LE_AUTH_BOND);
 #endif
-
+#if defined(CONFIG_BLUEDROID_ENABLED) && defined(CONFIG_BT_BLE_50_FEATURES_SUPPORTED)
+    esp_ble_gap_set_preferred_default_phy(ESP_BLE_GAP_PHY_2M_PREF_MASK,
+                                          ESP_BLE_GAP_PHY_2M_PREF_MASK);
+#endif
     /// Add BluFi handler.
+#if defined(CONFIG_BT_BLUEDROID_ENABLED)
     BLEDevice::setCustomGapHandler(BluFi::handleBLEEvent);
+#endif
     WiFi->addCustomWiFiHandler(BluFi::handleWiFiEvent);
     WiFi->setScanDoneHandle(BluFi::handleScanDone);
 
     BluFi::securityInit();
-    ret = esp_blufi_register_callbacks(&blufi_callbacks);
-    if (ret) {
-        log_e("%s Blufi register failed, error code = %x", __func__, ret);
+    err = esp_blufi_register_callbacks(&blufi_callbacks);
+    if (err) {
+        log_e("%s Blufi register failed, error code = %x", __func__, err);
+        return;
+    }
+#if defined(CONFIG_BT_BLUEDROID_ENABLED)
+    esp_blufi_profile_init();
+#else
+    err = esp_nimble_init();
+    if (err) {
+        log_e("%s failed: %s", __func__, esp_err_to_name(err));
         return;
     }
 
-    esp_blufi_profile_init();
+    ble_hs_cfg.reset_cb = blufi_on_reset;
+    ble_hs_cfg.sync_cb = blufi_on_sync;
+    ble_hs_cfg.gatts_register_cb = esp_blufi_gatt_svr_register_cb;
+    ble_hs_cfg.store_status_cb = ble_store_util_status_rr;
+
+    ble_hs_cfg.sm_io_cap = 4;
+    //ble_hs_cfg.sm_bonding = 1;
+    //ble_hs_cfg.sm_mitm = 1;
+    //ble_hs_cfg.sm_sc = 1;
+    //ble_hs_cfg.sm_our_key_dist = 1;
+    //ble_hs_cfg.sm_their_key_dist = 1;
+    ble_hs_cfg.sm_sc = 0;
+
+    int rc;
+    rc = esp_blufi_gatt_svr_init();
+    assert(rc == 0);
+
+    /* Set the default device name. */
+    rc = ble_svc_gap_device_name_set(deviceName.c_str());
+    assert(rc == 0);
+
+    /* XXX Need to have template for store */
+    ble_store_config_init();
+
+    esp_blufi_btc_init();
+
+    err = esp_nimble_enable((void *)bleprph_host_task);
+    if (err) {
+        log_e("%s failed: %s", __func__, esp_err_to_name(err));
+        return;
+    }
+#endif
+    log_i("Blufi Version %04x.", esp_blufi_get_version());
 }
 
 void BluFi::deinit() {
     esp_blufi_profile_deinit();
     BluFi::securityDeinit();
+#if defined(CONFIG_BT_BLUEDROID_ENABLED)
     BLEDevice::deinit(true);
+#endif
 }
 
 /**
@@ -245,9 +342,12 @@ String BluFi::_auth_key;                    ///  设备中存储的认证KEY，�
 String BluFi::_auth_pin;                    ///  设备中存储的认证PIN，一般用户存储的PIN码
 String BluFi::_auth_user_or_pin;            ///  当前通过认证的信息，可能是用户KEY，或PIN值
 String BluFi::_auth_curr_user;              ///  当前连接的用户KEY
+
+#if defined(CONFIG_BT_BLUEDROID_ENABLED)
 std::shared_ptr<BLEHIDDevice> BluFi::hid;
 std::shared_ptr<BLECharacteristic> BluFi::input;
 std::shared_ptr<BLECharacteristic> BluFi::output;
+#endif
 
 /**
  * @fn void setAuthKey(String)
@@ -334,7 +434,10 @@ bool BluFi::isKeyAuthPassed()
 #endif
     return false;
 }
-
+bool BluFi::isBleConnected()
+{
+    return _ble_is_connected;
+}
 /**
  * @fn bool sendCustomData(uint8_t*, uint32_t)
  *
@@ -346,7 +449,7 @@ bool BluFi::isKeyAuthPassed()
  * @return send data succussful or not.
  */
 bool BluFi::sendCustomData(uint8_t *data, uint32_t data_len) {
-    if (_ble_is_connected == true) {
+    if (_ble_is_connected) {
         return esp_blufi_send_custom_data(data, data_len) == ESP_OK;
     }
     return false;
@@ -425,7 +528,7 @@ esp_err_t BluFi::handleWiFiEvent(
             esp_wifi_get_mode(&mode);
 
             /* TODO: get config or information of softap, then set to report extra_info */
-            if (_ble_is_connected == true) {
+            if (_ble_is_connected) {
                 if (_gl_sta_connected) {
                     esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_SUCCESS, 0, NULL);
                 } else {
@@ -447,7 +550,7 @@ esp_err_t BluFi::handleWiFiEvent(
             info.sta_bssid_set = true;
             info.sta_ssid = _gl_sta_ssid;
             info.sta_ssid_len = _gl_sta_ssid_len;
-            if (_ble_is_connected == true) {
+            if (_ble_is_connected) {
                 esp_blufi_send_wifi_conn_report(mode, ESP_BLUFI_STA_CONN_SUCCESS, 0, &info);
             } else {
                 log_i("BLUFI BLE is not connected at got ip.");
@@ -472,28 +575,39 @@ esp_err_t BluFi::handleWiFiEvent(
 void BluFi::handleScanDone(uint16_t apCount, void *result) {
     wifi_ap_record_t *ap_list = (wifi_ap_record_t *)result;
     if (apCount > 0) {
-        esp_blufi_ap_record_t *blufi_ap_list = (esp_blufi_ap_record_t *)malloc(apCount * sizeof(esp_blufi_ap_record_t));
-        if (!blufi_ap_list) {
-            if (ap_list) {
-                free(ap_list);
+        auto *blufi_ap_list = (esp_blufi_ap_record_t *)heap_caps_calloc(apCount ,
+                                                                      sizeof(esp_blufi_ap_record_t),
+                                                                      MALLOC_CAP_SPIRAM);
+        //esp_blufi_ap_record_t *blufi_ap_list = (esp_blufi_ap_record_t *)malloc(apCount * sizeof(esp_blufi_ap_record_t));
+        if (blufi_ap_list) {
+            for (int i = 0; i < apCount; ++i) {
+                blufi_ap_list[i].rssi = ap_list[i].rssi;
+                memcpy(blufi_ap_list[i].ssid, ap_list[i].ssid, sizeof(ap_list[i].ssid));
             }
-            log_e("malloc error, blufi_ap_list is NULL");
-            return;
-        }
-        for (int i = 0; i < apCount; ++i) {
-            blufi_ap_list[i].rssi = ap_list[i].rssi;
-            memcpy(blufi_ap_list[i].ssid, ap_list[i].ssid, sizeof(ap_list[i].ssid));
-        }
 
-        if (_ble_is_connected == true) {
-            esp_blufi_send_wifi_list(apCount, blufi_ap_list);
-        } else {
-            log_i("BLUFI BLE is not connected after scan done.");
+            if (_ble_is_connected) {
+                esp_blufi_send_wifi_list(apCount, blufi_ap_list);
+            } else {
+                log_i("BLUFI BLE is not connected after scan done.");
+            }
+            free(blufi_ap_list);
         }
+        else {
+            log_e("malloc error, blufi_ap_list is NULL");
+        }
+    }
+    else {
+        auto *blufi_ap_list = (esp_blufi_ap_record_t *)heap_caps_calloc(1 ,
+                                                                     sizeof(esp_blufi_ap_record_t),
+                                                                     MALLOC_CAP_SPIRAM);
+        blufi_ap_list[0].rssi = 0;
+        memset(blufi_ap_list[0].ssid, 0, sizeof(ap_list[0].ssid));
+        esp_blufi_send_wifi_list(1, blufi_ap_list);
         free(blufi_ap_list);
     }
 }
 
+#if defined(CONFIG_BT_BLUEDROID_ENABLED)
 void BluFi::handleBLEEvent(esp_gap_ble_cb_event_t event,
                            esp_ble_gap_cb_param_t *param) {
     switch (event) {
@@ -503,6 +617,7 @@ void BluFi::handleBLEEvent(esp_gap_ble_cb_event_t event,
         break;
     }
 }
+#endif
 
 void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param) {
     /**
@@ -519,6 +634,7 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
     switch (event) {
     case ESP_BLUFI_EVENT_INIT_FINISH: {
         log_i("BLUFI init finish");
+#if defined(CONFIG_BT_BLUEDROID_ENABLED)
         BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
         pAdvertising->addServiceUUID(_blufi_service_uuid);
         //pAdvertising->setAppearance(HID_CARD_READER);    // <-- optional
@@ -531,19 +647,28 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
         _auth_user_or_pin.clear();
         _auth_curr_user.clear();
         BLEDevice::startAdvertising();
+#else
+        _auth_user_or_pin.clear();
+        _auth_curr_user.clear();
+        esp_blufi_adv_start();
+#endif
         break;
     }
     case ESP_BLUFI_EVENT_DEINIT_FINISH:
         log_i("BLUFI deinit finish");
         break;
     case ESP_BLUFI_EVENT_BLE_CONNECT:
-        log_d("BLUFI ble connect");
+        log_d("BLUFI BLE connect");
         _ble_is_connected = true;
         _server_if = param->connect.server_if;
         _conn_id = param->connect.conn_id;
         _auth_user_or_pin.clear();
         _auth_curr_user.clear();
+#if defined(CONFIG_BT_BLUEDROID_ENABLED)
         BLEDevice::stopAdvertising();
+#else
+        esp_blufi_adv_stop();
+#endif
         BluFi::securityInit();
         break;
     case ESP_BLUFI_EVENT_BLE_DISCONNECT:
@@ -551,7 +676,11 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
         _ble_is_connected = false;
         //remove_all_bonded_devices();
         BluFi::securityDeinit();
+#if defined(CONFIG_BT_BLUEDROID_ENABLED)
         BLEDevice::startAdvertising();
+#else
+        esp_blufi_adv_start();
+#endif
         break;
 #if ONLY_USE_BLUETOOTH
 #else
@@ -563,17 +692,22 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
                 _custom_wifi_mode_chg_cb();
             }
             WiFi->mode(WIFI_MODE_NULL);
-            delay(500);
-            WiFi->mode(param->wifi_mode.op_mode);
+            if(WIFI_MODE_NULL != param->wifi_mode.op_mode) {
+                delay(500);
+                WiFi->mode(param->wifi_mode.op_mode);
+                if ((param->wifi_mode.op_mode == WIFI_MODE_STA) || (param->wifi_mode.op_mode == WIFI_MODE_APSTA)) {
+                    WiFi->reconnect();
+                }
+            }
         }
         break;
     case ESP_BLUFI_EVENT_REQ_CONNECT_TO_AP:
         if (isAuthPassed()) {
             log_i("BLUFI requset wifi connect to AP");
             /*
-                * there is no wifi callback when the device has already connected to this WiFi
-                * so disconnect wifi before connection.
-               */
+             * there is no wifi callback when the device has already connected to this WiFi
+             * so disconnect wifi before connection.
+             */
             delay(100);
             WiFi->reconnect();
         }
@@ -698,10 +832,11 @@ void BluFi::eventHandler(esp_blufi_cb_event_t event, esp_blufi_cb_param_t *param
     }
 #endif
     case ESP_BLUFI_EVENT_RECV_CUSTOM_DATA:
-        // log_v("Recv Custom Data %d", param->custom_data.data_len);
-        // esp_log_buffer_hex("Custom Data", param->custom_data.data, param->custom_data.data_len);
+        log_d("Recv Custom Data %lu", param->custom_data.data_len);
+//        esp_log_buffer_hex("Custom Data", param->custom_data.data, param->custom_data.data_len);
         if (_custom_data_recv_cb != NULL)
             _custom_data_recv_cb(param->custom_data.data, param->custom_data.data_len);
+        BluFi::sendCustomData(param->custom_data.data, 16);
         break;
     case ESP_BLUFI_EVENT_RECV_USERNAME:
         /* Not handle currently */
@@ -785,7 +920,7 @@ void BluFi::negotiateDataHandler(uint8_t *data, int len, uint8_t **output_data, 
         ret = mbedtls_dhm_make_public(&_blufi_sec->dhm,
                                       dhm_len,
                                       _blufi_sec->self_public_key,
-                                      dhm_len, myrand, NULL);
+                                      dhm_len, f_rng, NULL);
         if (ret) {
             log_e("%s make public failed %d", __func__, ret);
             btc_blufi_report_error(ESP_BLUFI_MAKE_PUBLIC_ERROR);
@@ -796,7 +931,7 @@ void BluFi::negotiateDataHandler(uint8_t *data, int len, uint8_t **output_data, 
                                 _blufi_sec->share_key,
                                 SHARE_KEY_BIT_LEN,
                                 &_blufi_sec->share_len,
-                                NULL, NULL);
+                                f_rng, NULL);
 
         mbedtls_md5(_blufi_sec->share_key, _blufi_sec->share_len, _blufi_sec->psk);
 
